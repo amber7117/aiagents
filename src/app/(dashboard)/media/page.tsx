@@ -29,6 +29,7 @@ import {
   Upload,
 } from 'lucide-react';
 import Image from 'next/image';
+import React, { useRef } from 'react';
 
 const mockFiles = [
   { id: 'folder-1', type: 'folder', name: 'User Avatars' },
@@ -61,6 +62,16 @@ const mockFiles = [
 ];
 
 export default function MediaPage() {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      console.log('Selected files:', files);
+      // Here you would typically handle the file upload to R2/S3
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -70,10 +81,18 @@ export default function MediaPage() {
             Manage your images and media assets.
           </p>
         </div>
-        <Button>
+        <Button onClick={() => fileInputRef.current?.click()}>
           <Upload className="mr-2 h-4 w-4" />
           Upload File
         </Button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          className="hidden"
+          accept="image/*"
+          multiple
+        />
       </div>
 
       <Card>
