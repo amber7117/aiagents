@@ -7,10 +7,10 @@ export default function InboxLayout({
 }) {
   return (
     <div className="grid h-[calc(100vh-4rem)] grid-cols-1 lg:grid-cols-[380px_1fr]">
-      <div className="hidden border-r bg-card lg:block">
+      <div className="border-r bg-card">
         <ConversationList />
       </div>
-      <div className="flex flex-col">
+      <div className="hidden flex-col lg:flex">
         {children}
       </div>
     </div>
