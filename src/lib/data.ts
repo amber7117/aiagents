@@ -15,9 +15,9 @@ export const users: User[] = [
 ];
 
 export const channels: Channel[] = [
-  { id: 'ch-1', name: 'WhatsApp Business', type: 'WhatsApp', status: 'online', lastActivity: '2 minutes ago' },
-  { id: 'ch-2', name: 'Support Bot', type: 'Telegram', status: 'online', lastActivity: '5 minutes ago' },
-  { id: 'ch-3', name: 'Marketing Page', type: 'Facebook', status: 'offline', lastActivity: '1 day ago' },
+  { id: 'ch-1', name: 'WhatsApp Business', type: 'WhatsApp', status: 'online', lastActivity: '2 minutes ago', agentId: 'agent-1' },
+  { id: 'ch-2', name: 'Support Bot', type: 'Telegram', status: 'online', lastActivity: '5 minutes ago', agentId: 'agent-2' },
+  { id: 'ch-3', name: 'Marketing Page', type: 'Facebook', status: 'offline', lastActivity: '1 day ago', agentId: 'agent-3' },
   { id: 'ch-4', name: 'Website Chat', type: 'Widget', status: 'error', lastActivity: '3 hours ago' },
 ];
 

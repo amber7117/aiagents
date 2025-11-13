@@ -16,6 +16,7 @@ export type Channel = {
   type: ChannelType;
   status: 'online' | 'offline' | 'error';
   lastActivity: string;
+  agentId?: string;
 };
 
 export type Message = {

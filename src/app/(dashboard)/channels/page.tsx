@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { channels as initialChannels } from '@/lib/data';
+import { channels as initialChannels, aiAgents } from '@/lib/data';
 import type { Channel } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -146,6 +146,10 @@ export default function ChannelsPage() {
   const handleAddChannel = (newChannel: Channel) => {
     setChannels((prev) => [...prev, newChannel]);
   };
+
+  const handleAgentChange = (channelId: string, agentId: string) => {
+    setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, agentId: agentId === 'none' ? undefined : agentId} : ch));
+  };
   
   return (
     <Card>
@@ -168,6 +172,7 @@ export default function ChannelsPage() {
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Last Activity</TableHead>
+              <TableHead>Assigned Agent</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -209,6 +214,22 @@ export default function ChannelsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>{channel.lastActivity}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={channel.agentId || 'none'}
+                      onValueChange={(agentId) => handleAgentChange(channel.id, agentId)}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Select an agent" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {aiAgents.map(agent => (
+                            <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
