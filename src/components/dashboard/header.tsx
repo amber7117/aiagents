@@ -16,6 +16,7 @@ import {
   Settings,
   Users,
   Wallet,
+  Megaphone,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -58,6 +59,7 @@ const navItems: NavItem[] = [
   { href: '/agents', label: 'AI Agents', icon: Bot },
   { href: '/analytics', label: 'Analytics', icon: PieChart },
   { href: '/media', label: 'Media', icon: Image },
+  { href: '/marketing', label: 'Marketing', icon: Megaphone },
   { href: '/wallet', label: 'Wallet', icon: Wallet },
   { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/settings/ai', label: 'AI Setting', icon: Cpu },
