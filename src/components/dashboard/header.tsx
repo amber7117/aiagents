@@ -1,8 +1,10 @@
 'use client';
 
+import React from 'react';
 import {
   Bell,
   Bot,
+  Cpu,
   Home,
   LineChart,
   Menu,
@@ -15,7 +17,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import {
@@ -55,9 +56,11 @@ const navItems: NavItem[] = [
   { href: '/agents', label: 'AI Agents', icon: Bot },
   { href: '/analytics', label: 'Analytics', icon: PieChart },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/settings/ai', label: 'AI Setting', icon: Cpu },
 ];
 
 function capitalize(s: string) {
+  if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -75,7 +78,7 @@ export default function DashboardHeader() {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-[280px]">
-          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+          <SheetTitle>Navigation</SheetTitle>
           <nav className="grid gap-4 text-lg font-medium">
             <Link
               href="#"
