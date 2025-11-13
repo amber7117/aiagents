@@ -51,6 +51,16 @@ type FileItem = {
   parentId?: string | null;
 };
 
+const getDailySeed = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    return `${year}${month}${day}`;
+}
+
+const dailySeed = getDailySeed();
+
 const initialFiles: FileItem[] = [
   { id: 'folder-1', type: 'folder', name: 'User Avatars', parentId: null },
   { id: 'folder-2', type: 'folder', name: 'Product Images', parentId: null },
@@ -58,21 +68,21 @@ const initialFiles: FileItem[] = [
     id: 'img-1',
     type: 'image',
     name: 'header-background.jpg',
-    url: 'https://picsum.photos/seed/media1/400/300',
+    url: `https://picsum.photos/seed/${dailySeed}-1/400/300`,
     parentId: null,
   },
   {
     id: 'img-2',
     type: 'image',
     name: 'promo-banner.png',
-    url: 'https://picsum.photos/seed/media2/400/300',
+    url: `https://picsum.photos/seed/${dailySeed}-2/400/300`,
     parentId: 'folder-2',
   },
   {
     id: 'img-3',
     type: 'image',
     name: 'email-template-hero.gif',
-    url: 'https://picsum.photos/seed/media3/400/300',
+    url: `https://picsum.photos/seed/${dailySeed}-3/400/300`,
     parentId: 'folder-2',
   },
   { id: 'folder-3', type: 'folder', name: 'Campaign Assets', parentId: null },
@@ -80,7 +90,7 @@ const initialFiles: FileItem[] = [
     id: 'img-4',
     type: 'image',
     name: 'social-post-1.jpg',
-    url: 'https://picsum.photos/seed/media4/400/300',
+    url: `https://picsum.photos/seed/${dailySeed}-4/400/300`,
     parentId: null,
   },
 ];
