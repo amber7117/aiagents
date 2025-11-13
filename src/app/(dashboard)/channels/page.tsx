@@ -1,4 +1,3 @@
-
 'use client';
 
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
@@ -192,7 +191,7 @@ export default function ChannelsPage() {
                 <TableRow key={channel.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
-                      <Icon className="h-5 w-5 text-muted-foreground" />
+                      {Icon && <Icon className="h-5 w-5 text-muted-foreground" />}
                       <span>{channel.name}</span>
                     </div>
                   </TableCell>
