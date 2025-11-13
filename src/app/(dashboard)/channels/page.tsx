@@ -2,7 +2,7 @@
 'use client';
 
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import React from 'react';
+import React, { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { channels } from '@/lib/data';
+import { channels as initialChannels } from '@/lib/data';
+import type { Channel } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 import { WhatsAppLogo } from '@/components/icons/whatsapp-logo';
@@ -61,9 +62,30 @@ const channelIcons: Record<string, React.ElementType> = {
   Widget: MessageSquare,
 };
 
-function AddChannelDialog() {
+function AddChannelDialog({ onAddChannel }: { onAddChannel: (newChannel: Channel) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [type, setType] = useState<Channel['type'] | ''>('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !type) return;
+
+    const newChannel: Channel = {
+      id: `ch-${Date.now()}`,
+      name,
+      type,
+      status: 'online',
+      lastActivity: 'Just now',
+    };
+    onAddChannel(newChannel);
+    setOpen(false);
+    setName('');
+    setType('');
+  };
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1">
           <PlusCircle className="h-3.5 w-3.5" />
@@ -71,49 +93,60 @@ function AddChannelDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Add New Channel</DialogTitle>
-          <DialogDescription>
-            Connect a new communication channel to your workspace.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Name
-            </Label>
-            <Input
-              id="name"
-              defaultValue="My new channel"
-              className="col-span-3"
-            />
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Add New Channel</DialogTitle>
+            <DialogDescription>
+              Connect a new communication channel to your workspace.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="My new channel"
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="type" className="text-right">
+                Type
+              </Label>
+              <Select onValueChange={(value) => setType(value as Channel['type'])} value={type}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a channel type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                  <SelectItem value="Telegram">Telegram</SelectItem>
+                  <SelectItem value="Facebook">Facebook</SelectItem>
+                  <SelectItem value="Widget">Website Widget</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="type" className="text-right">
-              Type
-            </Label>
-            <Select>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select a channel type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                <SelectItem value="telegram">Telegram</SelectItem>
-                <SelectItem value="facebook">Facebook</SelectItem>
-                <SelectItem value="widget">Website Widget</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button type="submit">Add Channel</Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="submit">Add Channel</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
 }
 
 export default function ChannelsPage() {
+  const [channels, setChannels] = useState<Channel[]>(initialChannels);
+
+  const handleAddChannel = (newChannel: Channel) => {
+    setChannels((prev) => [...prev, newChannel]);
+  };
+  
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -124,7 +157,7 @@ export default function ChannelsPage() {
           </CardDescription>
         </div>
         <div>
-          <AddChannelDialog />
+          <AddChannelDialog onAddChannel={handleAddChannel} />
         </div>
       </CardHeader>
       <CardContent>
