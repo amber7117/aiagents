@@ -9,7 +9,7 @@ export type User = {
   balance?: number;
 };
 
-export type ChannelType = 'WhatsApp' | 'Telegram' | 'Facebook' | 'Widget' | 'WeChat';
+export type ChannelType = 'WhatsApp' | 'Telegram' | 'Facebook' | 'Widget' | 'WeChat' | 'MiChat';
 
 export type Channel = {
   id: string;

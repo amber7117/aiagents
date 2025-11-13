@@ -35,6 +35,7 @@ import { WhatsAppLogo } from '@/components/icons/whatsapp-logo';
 import { TelegramLogo } from '@/components/icons/telegram-logo';
 import { FacebookLogo } from '@/components/icons/facebook-logo';
 import { WeChatLogo } from '@/components/icons/wechat-logo';
+import { MiChatLogo } from '@/components/icons/michat-logo';
 import { MessageSquare } from 'lucide-react';
 import {
   Dialog,
@@ -62,6 +63,7 @@ const channelIcons: Record<string, React.ElementType> = {
   Facebook: FacebookLogo,
   Widget: MessageSquare,
   WeChat: WeChatLogo,
+  MiChat: MiChatLogo,
 };
 
 function AddChannelDialog({ onAddChannel }: { onAddChannel: (newChannel: Channel) => void }) {
@@ -130,6 +132,7 @@ function AddChannelDialog({ onAddChannel }: { onAddChannel: (newChannel: Channel
                   <SelectItem value="Telegram">Telegram</SelectItem>
                   <SelectItem value="Facebook">Facebook</SelectItem>
                   <SelectItem value="WeChat">WeChat</SelectItem>
+                  <SelectItem value="MiChat">MiChat</SelectItem>
                   <SelectItem value="Widget">Website Widget</SelectItem>
                 </SelectContent>
               </Select>

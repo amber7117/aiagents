@@ -20,6 +20,7 @@ export const channels: Channel[] = [
   { id: 'ch-2', name: 'Support Bot', type: 'Telegram', status: 'online', lastActivity: '5 minutes ago', agentId: 'agent-2', autoReply: true },
   { id: 'ch-3', name: 'Marketing Page', type: 'Facebook', status: 'offline', lastActivity: '1 day ago', agentId: 'agent-3', autoReply: false },
   { id: 'ch-5', name: 'WeChat Official', type: 'WeChat', status: 'online', lastActivity: '10 minutes ago', agentId: 'agent-1', autoReply: true },
+  { id: 'ch-6', name: 'MiChat Support', type: 'MiChat', status: 'online', lastActivity: '1 hour ago', autoReply: false },
   { id: 'ch-4', name: 'Website Chat', type: 'Widget', status: 'error', lastActivity: '3 hours ago', autoReply: true },
 ];
 
@@ -162,6 +163,30 @@ export const conversations: Conversation[] = [
         sender: 'user',
         content: '你好，我在附近的人里面看到你的，请问你这里是做什么的？',
         timestamp: new Date(Date.now() - 60000 * 2).toISOString(),
+        status: 'delivered',
+      },
+    ],
+  },
+    {
+    id: 'conv-7',
+    channel: 'MiChat',
+    contact: { id: 'contact-7', name: 'Ahmad', avatar: 'https://picsum.photos/seed/16/100/100' },
+    unreadCount: 1,
+    lastMessage: {
+      id: 'msg-7-1',
+      conversationId: 'conv-7',
+      sender: 'user',
+      content: 'Boleh saya dapatkan maklumat lanjut?',
+      timestamp: new Date(Date.now() - 60000 * 5).toISOString(), // 5 minutes ago
+      status: 'delivered',
+    },
+    messages: [
+      {
+        id: 'msg-7-1',
+        conversationId: 'conv-7',
+        sender: 'user',
+        content: 'Boleh saya dapatkan maklumat lanjut?',
+        timestamp: new Date(Date.now() - 60000 * 5).toISOString(),
         status: 'delivered',
       },
     ],

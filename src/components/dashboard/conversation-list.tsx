@@ -22,6 +22,7 @@ import { WhatsAppLogo } from '../icons/whatsapp-logo';
 import { TelegramLogo } from '../icons/telegram-logo';
 import { FacebookLogo } from '../icons/facebook-logo';
 import { WeChatLogo } from '../icons/wechat-logo';
+import { MiChatLogo } from '../icons/michat-logo';
 
 const channelIcons: Record<string, React.ElementType> = {
   WhatsApp: WhatsAppLogo,
@@ -29,6 +30,7 @@ const channelIcons: Record<string, React.ElementType> = {
   Facebook: FacebookLogo,
   WeChat: WeChatLogo,
   Widget: MessageSquare,
+  MiChat: MiChatLogo,
 };
 
 export default function ConversationList() {
