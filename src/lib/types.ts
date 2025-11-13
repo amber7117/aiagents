@@ -17,6 +17,7 @@ export type Channel = {
   status: 'online' | 'offline' | 'error';
   lastActivity: string;
   agentId?: string;
+  autoReply: boolean;
 };
 
 export type Message = {

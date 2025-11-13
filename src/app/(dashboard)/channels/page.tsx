@@ -54,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 const channelIcons: Record<string, React.ElementType> = {
   WhatsApp: WhatsAppLogo,
@@ -77,6 +78,7 @@ function AddChannelDialog({ onAddChannel }: { onAddChannel: (newChannel: Channel
       type,
       status: 'online',
       lastActivity: 'Just now',
+      autoReply: true,
     };
     onAddChannel(newChannel);
     setOpen(false);
@@ -151,6 +153,10 @@ export default function ChannelsPage() {
     setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, agentId: agentId === 'none' ? undefined : agentId} : ch));
   };
   
+  const handleAutoReplyToggle = (channelId: string, enabled: boolean) => {
+    setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, autoReply: enabled} : ch));
+  }
+  
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -173,6 +179,7 @@ export default function ChannelsPage() {
               <TableHead>Status</TableHead>
               <TableHead>Last Activity</TableHead>
               <TableHead>Assigned Agent</TableHead>
+              <TableHead>Auto Reply</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -229,6 +236,13 @@ export default function ChannelsPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                        checked={channel.autoReply}
+                        onCheckedChange={(enabled) => handleAutoReplyToggle(channel.id, enabled)}
+                        aria-label="Toggle auto-reply"
+                    />
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
