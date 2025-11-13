@@ -32,7 +32,7 @@ const prompt = ai.definePrompt({
   name: 'autoReplyUserMessagePrompt',
   input: {schema: AutoReplyUserMessageInputSchema},
   output: {schema: AutoReplyUserMessageOutputSchema},
-  prompt: `{{systemPrompt}}\nUser message: {{{userMessage}}}\nAI Agent Prompt: {{agentPrompt}}\n\nAI Reply: `,
+  prompt: `{{systemPrompt}}\nUser message from {{channel}}: {{{userMessage}}}\nAI Agent Prompt: {{agentPrompt}}\n\nAI Reply: `,
 });
 
 const autoReplyUserMessageFlow = ai.defineFlow(
