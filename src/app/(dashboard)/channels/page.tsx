@@ -1,3 +1,6 @@
+
+'use client';
+
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import React from 'react';
 
@@ -32,6 +35,24 @@ import { WhatsAppLogo } from '@/components/icons/whatsapp-logo';
 import { TelegramLogo } from '@/components/icons/telegram-logo';
 import { FacebookLogo } from '@/components/icons/facebook-logo';
 import { MessageSquare } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const channelIcons: Record<string, React.ElementType> = {
   WhatsApp: WhatsAppLogo,
@@ -39,6 +60,58 @@ const channelIcons: Record<string, React.ElementType> = {
   Facebook: FacebookLogo,
   Widget: MessageSquare,
 };
+
+function AddChannelDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size="sm" className="gap-1">
+          <PlusCircle className="h-3.5 w-3.5" />
+          Add Channel
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add New Channel</DialogTitle>
+          <DialogDescription>
+            Connect a new communication channel to your workspace.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input
+              id="name"
+              defaultValue="My new channel"
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="type" className="text-right">
+              Type
+            </Label>
+            <Select>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a channel type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="telegram">Telegram</SelectItem>
+                <SelectItem value="facebook">Facebook</SelectItem>
+                <SelectItem value="widget">Website Widget</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="submit">Add Channel</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function ChannelsPage() {
   return (
@@ -51,10 +124,7 @@ export default function ChannelsPage() {
           </CardDescription>
         </div>
         <div>
-          <Button size="sm" className="gap-1">
-            <PlusCircle className="h-3.5 w-3.5" />
-            Add Channel
-          </Button>
+          <AddChannelDialog />
         </div>
       </CardHeader>
       <CardContent>
