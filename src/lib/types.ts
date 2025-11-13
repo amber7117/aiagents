@@ -8,7 +8,7 @@ export type User = {
   role: 'admin' | 'agent';
 };
 
-export type ChannelType = 'WhatsApp' | 'Telegram' | 'Facebook' | 'Widget';
+export type ChannelType = 'WhatsApp' | 'Telegram' | 'Facebook' | 'Widget' | 'WeChat';
 
 export type Channel = {
   id: string;

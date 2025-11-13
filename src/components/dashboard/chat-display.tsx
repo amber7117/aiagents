@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Textarea } from '../ui/textarea';
 import { summarizeConversation } from '@/ai/flows/summarize-conversation';
 import { autoReplyUserMessage } from '@/ai/flows/auto-reply-user-message';
+import { Badge } from '../ui/badge';
 
 function MessageStatus({ status }: { status: Message['status'] }) {
   if (status === 'read') {

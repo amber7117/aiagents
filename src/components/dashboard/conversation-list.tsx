@@ -21,11 +21,13 @@ import {
 import { WhatsAppLogo } from '../icons/whatsapp-logo';
 import { TelegramLogo } from '../icons/telegram-logo';
 import { FacebookLogo } from '../icons/facebook-logo';
+import { WeChatLogo } from '../icons/wechat-logo';
 
 const channelIcons: Record<string, React.ElementType> = {
   WhatsApp: WhatsAppLogo,
   Telegram: TelegramLogo,
   Facebook: FacebookLogo,
+  WeChat: WeChatLogo,
   Widget: MessageSquare,
 };
 

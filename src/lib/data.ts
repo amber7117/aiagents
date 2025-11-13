@@ -18,6 +18,7 @@ export const channels: Channel[] = [
   { id: 'ch-1', name: 'WhatsApp Business', type: 'WhatsApp', status: 'online', lastActivity: '2 minutes ago', agentId: 'agent-1', autoReply: true },
   { id: 'ch-2', name: 'Support Bot', type: 'Telegram', status: 'online', lastActivity: '5 minutes ago', agentId: 'agent-2', autoReply: true },
   { id: 'ch-3', name: 'Marketing Page', type: 'Facebook', status: 'offline', lastActivity: '1 day ago', agentId: 'agent-3', autoReply: false },
+  { id: 'ch-5', name: 'WeChat Official', type: 'WeChat', status: 'online', lastActivity: '10 minutes ago', agentId: 'agent-1', autoReply: true },
   { id: 'ch-4', name: 'Website Chat', type: 'Widget', status: 'error', lastActivity: '3 hours ago', autoReply: true },
 ];
 
@@ -28,7 +29,7 @@ export const aiAgents: AIAgent[] = [
     description: 'Handles initial sales inquiries and product questions.',
     provider: 'OpenAI',
     prompt: 'You are a helpful sales assistant. Your goal is to answer product questions and guide users towards making a purchase.',
-    channelIds: ['ch-1', 'ch-4'],
+    channelIds: ['ch-1', 'ch-4', 'ch-5'],
   },
   {
     id: 'agent-2',
@@ -121,6 +122,23 @@ export const conversations: Conversation[] = [
     },
     messages: [
         { id: 'msg-4-1', conversationId: 'conv-4', sender: 'user', content: 'Do you have any discounts available?', timestamp: '2024-08-15T12:00:00Z', status: 'delivered' },
+    ]
+  },
+  {
+    id: 'conv-5',
+    channel: 'WeChat',
+    contact: { id: 'contact-5', name: 'Zhang Wei', avatar: 'https://picsum.photos/seed/14/100/100' },
+    unreadCount: 3,
+    lastMessage: {
+      id: 'msg-5-1',
+      conversationId: 'conv-5',
+      sender: 'user',
+      content: '你好，请问这个产品还有库存吗？',
+      timestamp: '2024-08-15T14:00:00Z',
+      status: 'delivered',
+    },
+    messages: [
+        { id: 'msg-5-1', conversationId: 'conv-5', sender: 'user', content: '你好，请问这个产品还有库存吗？', timestamp: '2024-08-15T14:00:00Z', status: 'delivered' },
     ]
   },
 ];
