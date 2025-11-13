@@ -29,7 +29,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,42 +39,48 @@ import {
   Upload,
 } from 'lucide-react';
 import Image from 'next/image';
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
+import Link from 'next/link';
 
 type FileItem = {
   id: string;
   type: 'folder' | 'image';
   name: string;
   url?: string;
+  parentId?: string | null;
 };
 
 const initialFiles: FileItem[] = [
-  { id: 'folder-1', type: 'folder', name: 'User Avatars' },
-  { id: 'folder-2', type: 'folder', name: 'Product Images' },
+  { id: 'folder-1', type: 'folder', name: 'User Avatars', parentId: null },
+  { id: 'folder-2', type: 'folder', name: 'Product Images', parentId: null },
   {
     id: 'img-1',
     type: 'image',
     name: 'header-background.jpg',
     url: 'https://picsum.photos/seed/media1/400/300',
+    parentId: null,
   },
   {
     id: 'img-2',
     type: 'image',
     name: 'promo-banner.png',
     url: 'https://picsum.photos/seed/media2/400/300',
+    parentId: 'folder-2',
   },
   {
     id: 'img-3',
     type: 'image',
     name: 'email-template-hero.gif',
     url: 'https://picsum.photos/seed/media3/400/300',
+    parentId: 'folder-2',
   },
-  { id: 'folder-3', type: 'folder', name: 'Campaign Assets' },
+  { id: 'folder-3', type: 'folder', name: 'Campaign Assets', parentId: null },
   {
     id: 'img-4',
     type: 'image',
     name: 'social-post-1.jpg',
     url: 'https://picsum.photos/seed/media4/400/300',
+    parentId: null,
   },
 ];
 
@@ -85,6 +90,7 @@ export default function MediaPage() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = event.target.files;
@@ -113,6 +119,34 @@ export default function MediaPage() {
       setNewName('');
     }
   };
+  
+  const handleFolderClick = (folderId: string) => {
+    setCurrentFolderId(folderId);
+  };
+
+  const handleBreadcrumbClick = (folderId: string | null) => {
+    setCurrentFolderId(folderId);
+  };
+  
+  const breadcrumbPath = useMemo(() => {
+    const path = [];
+    let currentId = currentFolderId;
+    while (currentId) {
+      const folder = files.find((f) => f.id === currentId);
+      if (folder) {
+        path.unshift(folder);
+        currentId = folder.parentId;
+      } else {
+        break;
+      }
+    }
+    return path;
+  }, [currentFolderId, files]);
+  
+  const displayedFiles = useMemo(() => {
+    return files.filter(file => file.parentId === currentFolderId);
+  }, [files, currentFolderId]);
+
 
   return (
     <div className="space-y-4">
@@ -142,23 +176,34 @@ export default function MediaPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href="/media">Home</BreadcrumbLink>
+                <BreadcrumbLink onClick={() => handleBreadcrumbClick(null)} className="cursor-pointer">Home</BreadcrumbLink>
               </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>All Files</BreadcrumbPage>
-              </BreadcrumbItem>
+              {breadcrumbPath.map((folder, index) => (
+                <React.Fragment key={folder.id}>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                    {index === breadcrumbPath.length - 1 ? (
+                        <BreadcrumbPage>{folder.name}</BreadcrumbPage>
+                    ) : (
+                        <BreadcrumbLink onClick={() => handleBreadcrumbClick(folder.id)} className="cursor-pointer">
+                        {folder.name}
+                        </BreadcrumbLink>
+                    )}
+                    </BreadcrumbItem>
+                </React.Fragment>
+              ))}
             </BreadcrumbList>
           </Breadcrumb>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {files.map((file) => (
+            {displayedFiles.map((file) => (
               <Card
                 key={file.id}
                 className="group relative overflow-hidden transition-shadow hover:shadow-md"
+                onClick={file.type === 'folder' ? () => handleFolderClick(file.id) : undefined}
               >
-                <div className="flex aspect-square w-full items-center justify-center bg-muted">
+                <div className={`flex aspect-square w-full items-center justify-center bg-muted ${file.type === 'folder' ? 'cursor-pointer' : ''}`}>
                   {file.type === 'image' && file.url ? (
                     <Image
                       src={file.url}
@@ -173,7 +218,7 @@ export default function MediaPage() {
                 </div>
                 <div className="absolute right-1 top-1">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -182,7 +227,7 @@ export default function MediaPage() {
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenuItem onClick={() => handleRenameClick(file)}>
                         Rename
                       </DropdownMenuItem>
