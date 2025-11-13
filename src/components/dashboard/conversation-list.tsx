@@ -1,6 +1,6 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { MessageSquare, Search } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,6 +18,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { WhatsAppLogo } from '../icons/whatsapp-logo';
+import { TelegramLogo } from '../icons/telegram-logo';
+import { FacebookLogo } from '../icons/facebook-logo';
+
+const channelIcons: Record<string, React.ElementType> = {
+  WhatsApp: WhatsAppLogo,
+  Telegram: TelegramLogo,
+  Facebook: FacebookLogo,
+  Widget: MessageSquare,
+};
 
 export default function ConversationList() {
   const pathname = usePathname();
@@ -45,7 +55,9 @@ export default function ConversationList() {
 
       <ScrollArea className="flex-1">
         <div className="flex flex-col gap-1 p-4 pt-0">
-          {conversations.map((conv) => (
+          {conversations.map((conv) => {
+            const Icon = channelIcons[conv.channel];
+            return (
             <Link
               key={conv.id}
               href={`/inbox/${conv.id}`}
@@ -73,6 +85,12 @@ export default function ConversationList() {
                   {conv.lastMessage.sender === 'agent' && 'You: '}
                   {conv.lastMessage.content}
                 </p>
+                <div className="mt-2 flex items-center gap-2">
+                    <Badge variant="secondary" className="gap-1 font-normal">
+                      <Icon className="h-3 w-3" />
+                      {conv.channel}
+                    </Badge>
+                  </div>
               </div>
               {conv.unreadCount > 0 && (
                 <Badge className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
@@ -80,7 +98,7 @@ export default function ConversationList() {
                 </Badge>
               )}
             </Link>
-          ))}
+          )})}
         </div>
       </ScrollArea>
     </div>
