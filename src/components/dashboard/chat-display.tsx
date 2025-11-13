@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { conversations, loggedInUser } from '@/lib/data';
+import { conversations, loggedInUser, channels, aiAgents } from '@/lib/data';
 import type { Conversation, Message } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -21,7 +21,7 @@ import {
   Sparkles,
   ThumbsUp,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Tooltip,
   TooltipContent,
@@ -52,6 +52,46 @@ export default function ChatDisplay({
   const [inputValue, setInputValue] = useState('');
   const [suggestedReply, setSuggestedReply] = useState('');
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
+
+  useEffect(() => {
+    setMessages(conversation.messages);
+    const lastMessage = conversation.messages[conversation.messages.length - 1];
+    const channel = channels.find(ch => ch.type === conversation.channel);
+
+    const handleAutoReply = async () => {
+      if (channel && channel.autoReply && lastMessage && lastMessage.sender === 'user') {
+        const agent = aiAgents.find(a => a.id === channel.agentId);
+        
+        try {
+            const result = await autoReplyUserMessage({ 
+                userMessage: lastMessage.content, 
+                channel: conversation.channel,
+                agentPrompt: agent?.prompt,
+            });
+
+            const aiMessage: Message = {
+                id: `msg-${Date.now()}`,
+                conversationId: conversation.id,
+                sender: 'ai',
+                content: result.autoReply,
+                timestamp: new Date().toISOString(),
+                status: 'sent',
+            };
+            
+            // Use a timeout to simulate a more realistic chat experience
+            setTimeout(() => {
+                setMessages(prevMessages => [...prevMessages, aiMessage]);
+            }, 1000);
+
+        } catch (error) {
+            console.error("Failed to auto-reply:", error);
+            // Optionally, you could add an error message to the chat
+        }
+      }
+    };
+
+    handleAutoReply();
+  }, [conversation]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
