@@ -6,6 +6,7 @@ export type User = {
   avatar: string;
   email: string;
   role: 'admin' | 'agent';
+  balance?: number;
 };
 
 export type ChannelType = 'WhatsApp' | 'Telegram' | 'Facebook' | 'Widget' | 'WeChat';

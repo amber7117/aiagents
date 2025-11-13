@@ -6,6 +6,7 @@ export const loggedInUser: User = {
   avatar: 'https://picsum.photos/seed/0/100/100',
   email: 'alex.shen@example.com',
   role: 'admin',
+  balance: 25.5,
 };
 
 export const users: User[] = [
