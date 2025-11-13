@@ -43,7 +43,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { loggedInUser } from '@/lib/data';
 import type { NavItem } from '@/lib/types';
@@ -75,6 +75,7 @@ export default function DashboardHeader() {
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-[280px]">
+          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
           <nav className="grid gap-4 text-lg font-medium">
             <Link
               href="#"
