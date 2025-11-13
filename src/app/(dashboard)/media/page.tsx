@@ -40,7 +40,7 @@ import {
   Upload,
 } from 'lucide-react';
 import Image from 'next/image';
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 
 type FileItem = {
@@ -59,8 +59,6 @@ const getDailySeed = () => {
     return `${year}${month}${day}`;
 }
 
-const dailySeed = getDailySeed();
-
 const initialFiles: FileItem[] = [
   { id: 'folder-1', type: 'folder', name: 'User Avatars', parentId: null },
   { id: 'folder-2', type: 'folder', name: 'Product Images', parentId: null },
@@ -68,21 +66,21 @@ const initialFiles: FileItem[] = [
     id: 'img-1',
     type: 'image',
     name: 'header-background.jpg',
-    url: `https://picsum.photos/seed/${dailySeed}-1/400/300`,
+    url: `https://picsum.photos/seed/{{dailySeed}}-1/400/300`,
     parentId: null,
   },
   {
     id: 'img-2',
     type: 'image',
     name: 'promo-banner.png',
-    url: `https://picsum.photos/seed/${dailySeed}-2/400/300`,
+    url: `https://picsum.photos/seed/{{dailySeed}}-2/400/300`,
     parentId: 'folder-2',
   },
   {
     id: 'img-3',
     type: 'image',
     name: 'email-template-hero.gif',
-    url: `https://picsum.photos/seed/${dailySeed}-3/400/300`,
+    url: `https://picsum.photos/seed/{{dailySeed}}-3/400/300`,
     parentId: 'folder-2',
   },
   { id: 'folder-3', type: 'folder', name: 'Campaign Assets', parentId: null },
@@ -90,20 +88,33 @@ const initialFiles: FileItem[] = [
     id: 'img-4',
     type: 'image',
     name: 'social-post-1.jpg',
-    url: `https://picsum.photos/seed/${dailySeed}-4/400/300`,
+    url: `https://picsum.photos/seed/{{dailySeed}}-4/400/300`,
     parentId: null,
   },
 ];
 
 export default function MediaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<FileItem[]>(initialFiles);
+  const [files, setFiles] = useState<FileItem[]>([]);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    const dailySeed = getDailySeed();
+    const seededFiles = initialFiles.map(file => {
+        if (file.url) {
+            return { ...file, url: file.url.replace('{{dailySeed}}', dailySeed) };
+        }
+        return file;
+    });
+    setFiles(seededFiles);
+  }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = event.target.files;
@@ -232,7 +243,7 @@ export default function MediaPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {displayedFiles.map((file) => (
+            {isClient && displayedFiles.map((file) => (
               <Card
                 key={file.id}
                 className="group relative overflow-hidden transition-shadow hover:shadow-md"
