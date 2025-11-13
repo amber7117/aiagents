@@ -4,6 +4,7 @@ import {
   Bot,
   ChevronDown,
   Cpu,
+  Image,
   Inbox,
   LifeBuoy,
   MessageSquare,
@@ -33,6 +34,7 @@ const navItems: NavItem[] = [
   { href: '/channels', label: 'Channels', icon: MessageSquare },
   { href: '/agents', label: 'AI Agents', icon: Bot },
   { href: '/analytics', label: 'Analytics', icon: PieChart },
+  { href: '/media', label: 'Media', icon: Image },
   { href: '/wallet', label: 'Wallet', icon: Wallet },
   { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/settings/ai', label: 'AI Setting', icon: Cpu },
@@ -42,7 +44,7 @@ export default function DashboardSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden h-full w-64 flex-col border-r bg-card lg:flex">
+    <aside className="hidden h-screen w-64 flex-col border-r bg-card lg:flex">
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/inbox" className="flex items-center gap-2 font-semibold">
           <Bot className="h-6 w-6 text-primary" />
