@@ -141,4 +141,28 @@ export const conversations: Conversation[] = [
         { id: 'msg-5-1', conversationId: 'conv-5', sender: 'user', content: '你好，请问这个产品还有库存吗？', timestamp: '2024-08-15T14:00:00Z', status: 'delivered' },
     ]
   },
+  {
+    id: 'conv-6',
+    channel: 'WeChat',
+    contact: { id: 'contact-6', name: 'Stranger from Nearby', avatar: 'https://picsum.photos/seed/15/100/100' },
+    unreadCount: 1,
+    lastMessage: {
+      id: 'msg-6-1',
+      conversationId: 'conv-6',
+      sender: 'user',
+      content: '你好，我在附近的人里面看到你的，请问你这里是做什么的？',
+      timestamp: new Date(Date.now() - 60000 * 2).toISOString(), // 2 minutes ago
+      status: 'delivered',
+    },
+    messages: [
+      {
+        id: 'msg-6-1',
+        conversationId: 'conv-6',
+        sender: 'user',
+        content: '你好，我在附近的人里面看到你的，请问你这里是做什么的？',
+        timestamp: new Date(Date.now() - 60000 * 2).toISOString(),
+        status: 'delivered',
+      },
+    ],
+  },
 ];
