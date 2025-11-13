@@ -34,6 +34,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Folder,
+  FolderPlus,
   Image as ImageIcon,
   MoreVertical,
   Upload,
@@ -88,6 +89,8 @@ export default function MediaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<FileItem[]>(initialFiles);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -120,6 +123,22 @@ export default function MediaPage() {
     }
   };
   
+  const handleCreateFolderSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newFolderName.trim()) {
+        const newFolder: FileItem = {
+            id: `folder-${Date.now()}`,
+            name: newFolderName.trim(),
+            type: 'folder',
+            parentId: currentFolderId,
+        };
+        setFiles([...files, newFolder]);
+        setCreateFolderOpen(false);
+        setNewFolderName('');
+    }
+  };
+
+
   const handleFolderClick = (folderId: string) => {
     setCurrentFolderId(folderId);
   };
@@ -157,10 +176,16 @@ export default function MediaPage() {
             Manage your images and media assets.
           </p>
         </div>
-        <Button onClick={() => fileInputRef.current?.click()}>
-          <Upload className="mr-2 h-4 w-4" />
-          Upload File
-        </Button>
+        <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setCreateFolderOpen(true)}>
+                <FolderPlus className="mr-2 h-4 w-4" />
+                Create Folder
+            </Button>
+            <Button onClick={() => fileInputRef.current?.click()}>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload File
+            </Button>
+        </div>
         <input
           type="file"
           ref={fileInputRef}
@@ -272,6 +297,37 @@ export default function MediaPage() {
             </div>
             <DialogFooter>
               <Button type="submit">Save changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={createFolderOpen} onOpenChange={setCreateFolderOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleCreateFolderSubmit}>
+            <DialogHeader>
+              <DialogTitle>Create New Folder</DialogTitle>
+              <DialogDescription>
+                Enter a name for your new folder.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="folder-name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="folder-name"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  className="col-span-3"
+                  placeholder="e.g., Marketing Assets"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Create Folder</Button>
             </DialogFooter>
           </form>
         </DialogContent>
