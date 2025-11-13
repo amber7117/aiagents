@@ -23,15 +23,33 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
   Folder,
   Image as ImageIcon,
   MoreVertical,
   Upload,
 } from 'lucide-react';
 import Image from 'next/image';
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 
-const mockFiles = [
+type FileItem = {
+  id: string;
+  type: 'folder' | 'image';
+  name: string;
+  url?: string;
+};
+
+const initialFiles: FileItem[] = [
   { id: 'folder-1', type: 'folder', name: 'User Avatars' },
   { id: 'folder-2', type: 'folder', name: 'Product Images' },
   {
@@ -63,12 +81,36 @@ const mockFiles = [
 
 export default function MediaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [files, setFiles] = useState<FileItem[]>(initialFiles);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
+  const [newName, setNewName] = useState('');
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      console.log('Selected files:', files);
+    const uploadedFiles = event.target.files;
+    if (uploadedFiles && uploadedFiles.length > 0) {
+      console.log('Selected files:', uploadedFiles);
       // Here you would typically handle the file upload to R2/S3
+    }
+  };
+
+  const handleRenameClick = (file: FileItem) => {
+    setFileToRename(file);
+    setNewName(file.name);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (fileToRename && newName.trim()) {
+      setFiles(
+        files.map((f) =>
+          f.id === fileToRename.id ? { ...f, name: newName.trim() } : f
+        )
+      );
+      setRenameDialogOpen(false);
+      setFileToRename(null);
+      setNewName('');
     }
   };
 
@@ -111,13 +153,13 @@ export default function MediaPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {mockFiles.map((file) => (
+            {files.map((file) => (
               <Card
                 key={file.id}
                 className="group relative overflow-hidden transition-shadow hover:shadow-md"
               >
-                <div className="aspect-square w-full bg-muted flex items-center justify-center">
-                  {file.type === 'image' ? (
+                <div className="flex aspect-square w-full items-center justify-center bg-muted">
+                  {file.type === 'image' && file.url ? (
                     <Image
                       src={file.url}
                       alt={file.name}
@@ -129,7 +171,7 @@ export default function MediaPage() {
                     <Folder className="h-16 w-16 text-muted-foreground" />
                   )}
                 </div>
-                <div className="absolute top-1 right-1">
+                <div className="absolute right-1 top-1">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -141,7 +183,9 @@ export default function MediaPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Rename</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleRenameClick(file)}>
+                        Rename
+                      </DropdownMenuItem>
                       <DropdownMenuItem>Move</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">
                         Delete
@@ -157,6 +201,36 @@ export default function MediaPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <form onSubmit={handleRenameSubmit}>
+            <DialogHeader>
+              <DialogTitle>Rename Item</DialogTitle>
+              <DialogDescription>
+                Enter a new name for &quot;{fileToRename?.name}&quot;.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="new-name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Save changes</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
