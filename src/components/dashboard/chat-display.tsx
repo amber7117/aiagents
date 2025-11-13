@@ -15,11 +15,13 @@ import {
   Bot,
   Check,
   CheckCheck,
+  Hand,
   MoreVertical,
   Paperclip,
   Send,
   Sparkles,
   ThumbsUp,
+  UserCheck,
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import {
@@ -52,14 +54,16 @@ export default function ChatDisplay({
   const [inputValue, setInputValue] = useState('');
   const [suggestedReply, setSuggestedReply] = useState('');
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState(false);
+  const [isAiDisabled, setIsAiDisabled] = useState(false);
 
   useEffect(() => {
     setMessages(conversation.messages);
+    setIsAiDisabled(false); // Reset on new conversation
     const lastMessage = conversation.messages[conversation.messages.length - 1];
     const channel = channels.find(ch => ch.type === conversation.channel);
 
     const handleAutoReply = async () => {
-      if (channel && channel.autoReply && lastMessage && lastMessage.sender === 'user') {
+      if (channel && channel.autoReply && !isAiDisabled && lastMessage && lastMessage.sender === 'user') {
         const agent = aiAgents.find(a => a.id === channel.agentId);
         
         try {
@@ -91,7 +95,7 @@ export default function ChatDisplay({
     };
 
     handleAutoReply();
-  }, [conversation]);
+  }, [conversation, isAiDisabled]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +112,8 @@ export default function ChatDisplay({
       setMessages([...messages, newMessage]);
       setInputValue('');
       setSuggestedReply('');
+      // When agent sends a message, disable AI for this conversation
+      setIsAiDisabled(true);
     }
   };
   
@@ -133,6 +139,11 @@ export default function ChatDisplay({
     setSuggestedReply('');
   }
 
+  const handleTakeOver = () => {
+    setIsAiDisabled(true);
+  };
+
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-16 shrink-0 items-center justify-between border-b bg-card px-4">
@@ -153,9 +164,32 @@ export default function ChatDisplay({
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="icon">
-          <MoreVertical className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+            {isAiDisabled ? (
+                 <Badge variant="outline" className="gap-2 border-primary/50 text-primary">
+                    <UserCheck className="h-4 w-4" />
+                    Manually Handled
+                </Badge>
+            ) : (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <Button variant="outline" size="sm" onClick={handleTakeOver} className="gap-2">
+                            <Hand className="h-4 w-4" />
+                            Take Over
+                        </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                        <p>Disable AI and handle this conversation manually.</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+
+            <Button variant="ghost" size="icon">
+                <MoreVertical className="h-5 w-5" />
+            </Button>
+        </div>
       </div>
 
       <ScrollArea className="flex-1 bg-background/70">
