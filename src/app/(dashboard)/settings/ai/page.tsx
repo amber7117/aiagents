@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import React from 'react';
 
-type Provider = 'google-ai' | 'openai' | 'anthropic';
+type Provider = 'google-ai' | 'openai' | 'anthropic' | 'deepseek';
 
 const modelOptions: Record<Provider, { value: string; label: string }[]> = {
   'google-ai': [
@@ -33,6 +33,10 @@ const modelOptions: Record<Provider, { value: string; label: string }[]> = {
   anthropic: [
     { value: 'claude-3-opus', label: 'Claude 3 Opus' },
     { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
+  ],
+  deepseek: [
+    { value: 'deepseek-chat', label: 'DeepSeek Chat' },
+    { value: 'deepseek-coder', label: 'DeepSeek Coder' },
   ],
 };
 
@@ -75,6 +79,7 @@ export default function AiSettingsPage() {
                 <SelectItem value="google-ai">Google AI (Gemini)</SelectItem>
                 <SelectItem value="openai">OpenAI (GPT-4)</SelectItem>
                 <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                <SelectItem value="deepseek">DeepSeek</SelectItem>
               </SelectContent>
             </Select>
           </div>
