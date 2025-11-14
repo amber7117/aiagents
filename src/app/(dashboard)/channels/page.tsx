@@ -1,6 +1,7 @@
 'use client';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,9 +26,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getChannels, getAIAgents, updateChannel } from '@/lib/api';
-import type { Channel, AIAgent } from '@/lib/types';
+import { getChannels, getAIAgents, updateChannel, addChannel } from '@/lib/api';
+import type { Channel, AIAgent, ChannelType } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
 import { WhatsAppLogo } from '@/components/icons/whatsapp-logo';
 import { TelegramLogo } from '@/components/icons/telegram-logo';
 import { FacebookLogo } from '@/components/icons/facebook-logo';
@@ -55,7 +57,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 
-const channelIcons: Record<string, React.ElementType> = {
+const channelIcons: Record<ChannelType, React.ElementType> = {
   WhatsApp: WhatsAppLogo,
   Telegram: TelegramLogo,
   Facebook: FacebookLogo,
@@ -67,20 +69,13 @@ const channelIcons: Record<string, React.ElementType> = {
 function AddChannelDialog({ onAddChannel }: { onAddChannel: (newChannel: Channel) => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
-  const [type, setType] = useState<Channel['type'] | ''>('');
+  const [type, setType] = useState<ChannelType | ''>('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !type) return;
 
-    const newChannel: Channel = {
-      id: `ch-${Date.now()}`,
-      name,
-      type,
-      status: 'offline',
-      lastActivity: '从未',
-      autoReply: true,
-    };
+    const newChannel = await addChannel({ name, type });
     onAddChannel(newChannel);
     setOpen(false);
     setName('');
@@ -160,52 +155,54 @@ export default function ChannelsPage() {
     fetchData();
   }, []);
 
-  const handleAddChannel = (newChannel: Channel) => {
-    setChannels((prev) => [...prev, newChannel]);
-  };
-
-  const handleAgentChange = async (channelId: string, agentId: string) => {
-    const newAgentId = agentId === 'none' ? undefined : agentId;
-    setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, agentId: newAgentId} : ch));
-    await updateChannel(channelId, { agentId: newAgentId });
-    toast({ description: "渠道代理已更新。" });
-  };
-  
-  const handleAutoReplyToggle = async (channelId: string, enabled: boolean) => {
-    setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, autoReply: enabled} : ch));
-    await updateChannel(channelId, { autoReply: enabled });
-    toast({ description: `自动回复已${enabled ? '启用' : '禁用'}。` });
-  }
-
-  const handleConnect = async (channelId: string) => {
-    const channel = channels.find(c => c.id === channelId);
-    if (!channel) return;
-    
+  const handleConnect = async (channelId: string, type: Channel['type']) => {
     setConnecting(prev => ({ ...prev, [channelId]: true }));
-    toast({ description: `正在连接到 ${channel.type}...` });
+    toast({ description: `正在连接到 ${type}...` });
 
-    const endpoint = channel.type === 'WhatsApp' ? '/api/whatsapp/connect' : '/api/wechat/connect';
+    const endpoint = type === 'WhatsApp' ? '/api/whatsapp/connect' : '/api/wechat/connect';
 
     try {
       const response = await fetch(endpoint, { method: 'POST' });
       if (response.ok) {
-        setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, status: 'online', lastActivity: '刚刚'} : ch));
-        toast({ description: `${channel.type} 已连接。` });
+        const updatedChannel = await updateChannel(channelId, { status: 'online', lastActivity: '刚刚' });
+        setChannels(prev => prev.map(ch => ch.id === channelId ? updatedChannel : ch));
+        toast({ description: `${type} 已连接。` });
       } else {
         throw new Error('连接失败');
       }
     } catch (error) {
-      console.error(`连接 ${channel.type} 失败:`, error);
+      console.error(`连接 ${type} 失败:`, error);
+      await updateChannel(channelId, { status: 'error' });
+      setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, status: 'error'} : ch));
       toast({
         title: '错误',
-        description: `${channel.type} 连接失败。`,
+        description: `${type} 连接失败。`,
         variant: 'destructive',
       });
-      setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, status: 'error'} : ch));
     } finally {
       setConnecting(prev => ({ ...prev, [channelId]: false }));
     }
   };
+
+  const handleAddChannel = (newChannel: Channel) => {
+    setChannels((prev) => [...prev, newChannel]);
+    if (newChannel.type === 'WhatsApp' || newChannel.type === 'WeChat') {
+      handleConnect(newChannel.id, newChannel.type);
+    }
+  };
+
+  const handleAgentChange = async (channelId: string, agentId: string) => {
+    const newAgentId = agentId === 'none' ? undefined : agentId;
+    await updateChannel(channelId, { agentId: newAgentId });
+    setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, agentId: newAgentId} : ch));
+    toast({ description: "渠道代理已更新。" });
+  };
+  
+  const handleAutoReplyToggle = async (channelId: string, enabled: boolean) => {
+    await updateChannel(channelId, { autoReply: enabled });
+    setChannels(prev => prev.map(ch => ch.id === channelId ? {...ch, autoReply: enabled} : ch));
+    toast({ description: `自动回复已${enabled ? '启用' : '禁用'}。` });
+  }
   
   return (
     <Card>
@@ -295,10 +292,10 @@ export default function ChannelsPage() {
                     />
                   </TableCell>
                   <TableCell>
-                  { (channel.type === 'WhatsApp' || channel.type === 'WeChat') && channel.status === 'offline' && (
+                  { (channel.type === 'WhatsApp' || channel.type === 'WeChat') && channel.status !== 'online' && (
                     <Button
                       size="sm"
-                      onClick={() => handleConnect(channel.id)}
+                      onClick={() => handleConnect(channel.id, channel.type)}
                       disabled={connecting[channel.id]}
                     >
                       {connecting[channel.id] ? '连接中...' : '连接'}

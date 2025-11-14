@@ -1,6 +1,7 @@
+
 import { users, aiAgents, channels, files, aiSettings, analyticsStats, conversationVolumeData, responseTimeData, satisfactionData } from './data';
-import type { User, AIAgent, Channel, Conversation, FileItem, AISettings, Message } from './types';
 import conversationsData from './conversations.json';
+import type { User, AIAgent, Channel, Conversation, FileItem, AISettings, Message, ChannelType } from './types';
 
 // Simulate a network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -17,36 +18,39 @@ export async function getUsers(): Promise<User[]> {
   return users;
 }
 
+export async function updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    await delay(500);
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        throw new Error('User not found');
+    }
+    Object.assign(user, updates);
+    console.log(`Updated user ${userId}:`, user);
+    return user;
+}
+
 export async function getAIAgents(): Promise<AIAgent[]> {
   await delay(500);
   return aiAgents;
 }
 
-export async function createAgent(agent: Omit<AIAgent, 'id' | 'channelIds'>): Promise<AIAgent> {
-    await delay(500);
-    const newAgent: AIAgent = {
-      ...agent,
-      id: `agent-${Date.now()}`,
-      channelIds: [],
-    };
-    aiAgents.push(newAgent);
-    return newAgent;
-}
-
-export async function deleteAgent(agentId: string): Promise<{success: boolean}> {
-    await delay(500);
-    const index = aiAgents.findIndex(a => a.id === agentId);
-    if (index > -1) {
-        aiAgents.splice(index, 1);
-        return { success: true };
-    }
-    return { success: false };
-}
-
-
 export async function getChannels(): Promise<Channel[]> {
   await delay(500);
   return channels;
+}
+
+export async function addChannel({ name, type }: { name: string, type: ChannelType }): Promise<Channel> {
+    await delay(500);
+    const newChannel: Channel = {
+        id: `ch-${Date.now()}`,
+        name,
+        type,
+        status: 'offline',
+        lastActivity: 'Never',
+        autoReply: true,
+    };
+    channels.push(newChannel);
+    return newChannel;
 }
 
 export async function getConversations(): Promise<Conversation[]> {
@@ -86,17 +90,6 @@ export async function getFiles(): Promise<FileItem[]> {
     await delay(500);
     return files;
 }
-
-export async function deleteFile(fileId: string): Promise<{ success: boolean }> {
-    await delay(500);
-    const index = files.findIndex(f => f.id === fileId);
-    if (index > -1) {
-        files.splice(index, 1);
-        return { success: true };
-    }
-    return { success: false };
-}
-
 
 export async function getAISettings(): Promise<AISettings> {
     await delay(500);
@@ -139,4 +132,41 @@ export async function getResponseTime() {
 export async function getSatisfactionRatings() {
     await delay(700);
     return satisfactionData;
+}
+
+
+export async function createAgent(agent: Omit<AIAgent, 'id'>): Promise<AIAgent> {
+  await delay(500);
+  const newAgent: AIAgent = {
+    id: `agent-${Date.now()}`,
+    ...agent,
+    channelIds: [],
+  };
+  aiAgents.push(newAgent);
+  return newAgent;
+}
+
+export async function deleteAgent(agentId: string): Promise<{ success: boolean }> {
+    await delay(500);
+    const index = aiAgents.findIndex(a => a.id === agentId);
+    if (index > -1) {
+        aiAgents.splice(index, 1);
+        channels.forEach(c => {
+            if (c.agentId === agentId) {
+                c.agentId = undefined;
+            }
+        });
+        return { success: true };
+    }
+    return { success: false };
+}
+
+export async function deleteFile(fileId: string): Promise<{ success: boolean }> {
+  await delay(300);
+  const index = files.findIndex((f) => f.id === fileId);
+  if (index > -1) {
+    files.splice(index, 1);
+    return { success: true };
+  }
+  return { success: false };
 }
