@@ -20,7 +20,17 @@ import { usePathname } from "next/navigation";
 import conversations from "@/lib/conversations.json";
 import { cn } from "@/lib/utils";
 import { useMobile } from "@/hooks/use-mobile";
-import type { Conversation } from "@/lib/types";
+import type { Conversation, ChannelType } from "@/lib/types";
+
+const channelColors: Record<ChannelType, string> = {
+  WhatsApp: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400 border-green-300 dark:border-green-800',
+  Widget: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-400 border-blue-300 dark:border-blue-800',
+  WeChat: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800',
+  MiChat: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400 border-orange-300 dark:border-orange-800',
+  Telegram: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-400 border-sky-300 dark:border-sky-800',
+  Facebook: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800',
+};
+
 
 export default function ConversationList() {
   const isMobile = useMobile();
@@ -103,7 +113,9 @@ export default function ConversationList() {
                   {conv.messages[conv.messages.length - 1].text}
                 </p>
                 <div className="mt-2 flex items-center gap-2">
-                  <Badge variant="secondary">{conv.channel.name}</Badge>
+                  <Badge variant="outline" className={cn(channelColors[conv.channel.type])}>
+                    {conv.channel.name}
+                  </Badge>
                   {/* <Badge variant="destructive">{conv.unreadCount}</Badge> */}
                 </div>
               </div>
