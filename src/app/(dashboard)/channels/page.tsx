@@ -1,6 +1,7 @@
 'use client';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -145,6 +146,7 @@ export default function ChannelsPage() {
   const [aiAgents, setAIAgents] = useState<AIAgent[]>([]);
   const { toast } = useToast();
   const [connecting, setConnecting] = useState<Record<string, boolean>>({});
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -314,7 +316,7 @@ export default function ChannelsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>操作</DropdownMenuLabel>
-                        <DropdownMenuItem>编辑</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/channels/${channel.id}`)}>编辑</DropdownMenuItem>
                         <DropdownMenuItem>刷新</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive">
                           删除
