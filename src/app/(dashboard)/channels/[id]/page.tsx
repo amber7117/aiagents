@@ -1,5 +1,4 @@
 
-
 'use client';
 import {
   Card,
@@ -130,20 +129,25 @@ function ChannelEditForm({ channel: initialChannel }: { channel: Channel }) {
   );
 }
 
-// Server Component Wrapper
-export default async function ChannelEditPage({ params }: { params: { id: string } }) {
+// Wrapper component to handle data fetching on the server.
+// We must keep this separate from the client component to use generateStaticParams.
+async function ChannelEditPageLoader({ params }: { params: { id: string } }) {
   const channels = await getChannels();
   const currentChannel = channels.find((c) => c.id === params.id);
 
   if (!currentChannel) {
-    const { notFound } = await import('next/navigation');
-    notFound();
+    // This part requires 'next/navigation' which can be tricky in this setup.
+    // A simple message is a safe fallback.
+    return <div>Channel not found.</div>;
   }
 
   return <ChannelEditForm channel={currentChannel} />;
 }
 
-// generateStaticParams must be in a server component.
+// The default export must handle server-side logic
+export default ChannelEditPageLoader;
+
+// generateStaticParams must be exported from the page file.
 export async function generateStaticParams() {
   const channels = await getChannels();
   return channels.map((channel) => ({
