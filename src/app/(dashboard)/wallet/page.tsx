@@ -11,22 +11,44 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { loggedInUser } from '@/lib/data';
-import { useState } from 'react';
+import { getLoggedInUser } from '@/lib/api';
+import type { User } from '@/lib/types';
+import { useState, useEffect } from 'react';
 import { DollarSign } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function WalletPage() {
-  const [balance, setBalance] = useState(loggedInUser.balance || 0);
+  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getLoggedInUser();
+      setLoggedInUser(user);
+      setBalance(user.balance || 0);
+    };
+    fetchUser();
+  }, []);
 
   const handleAddFunds = (e: React.FormEvent) => {
     e.preventDefault();
     const addAmount = parseFloat(amount);
     if (!isNaN(addAmount) && addAmount > 0) {
-      setBalance(balance + addAmount);
+      const newBalance = balance + addAmount;
+      setBalance(newBalance);
       setAmount('');
+      toast({ 
+        title: "Funds Added",
+        description: `$${addAmount.toFixed(2)} has been added to your wallet.`,
+      });
     }
   };
+
+  if (!loggedInUser) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-6">

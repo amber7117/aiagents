@@ -23,6 +23,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -42,86 +52,37 @@ import {
 import Image from 'next/image';
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-
-type FileItem = {
-  id: string;
-  type: 'folder' | 'image';
-  name: string;
-  url?: string;
-  parentId?: string | null;
-};
-
-const getDailySeed = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    const day = today.getDate().toString().padStart(2, '0');
-    return `${year}${month}${day}`;
-}
-
-const initialFiles: FileItem[] = [
-  { id: 'folder-1', type: 'folder', name: 'User Avatars', parentId: null },
-  { id: 'folder-2', type: 'folder', name: 'Product Images', parentId: null },
-  {
-    id: 'img-1',
-    type: 'image',
-    name: 'header-background.jpg',
-    url: `https://picsum.photos/seed/{{dailySeed}}-1/400/300`,
-    parentId: null,
-  },
-  {
-    id: 'img-2',
-    type: 'image',
-    name: 'promo-banner.png',
-    url: `https://picsum.photos/seed/{{dailySeed}}-2/400/300`,
-    parentId: 'folder-2',
-  },
-  {
-    id: 'img-3',
-    type: 'image',
-    name: 'email-template-hero.gif',
-    url: `https://picsum.photos/seed/{{dailySeed}}-3/400/300`,
-    parentId: 'folder-2',
-  },
-  { id: 'folder-3', type: 'folder', name: 'Campaign Assets', parentId: null },
-  {
-    id: 'img-4',
-    type: 'image',
-    name: 'social-post-1.jpg',
-    url: `https://picsum.photos/seed/{{dailySeed}}-4/400/300`,
-    parentId: null,
-  },
-];
+import { getFiles, deleteFile } from '@/lib/api';
+import type { FileItem } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function MediaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<FileItem[]>(initialFiles); // Initialize with non-seeded URLs
+  const { toast } = useToast();
+  const [files, setFiles] = useState<FileItem[]>([]); 
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [fileToRename, setFileToRename] = useState<FileItem | null>(null);
+  const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
   const [newName, setNewName] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // This effect runs only on the client, after the initial render.
     setIsClient(true);
-    const dailySeed = getDailySeed();
-    const seededFiles = initialFiles.map(file => {
-        if (file.url && file.url.includes('{{dailySeed}}')) {
-            return { ...file, url: file.url.replace('{{dailySeed}}', dailySeed) };
-        }
-        return file;
-    });
-    setFiles(seededFiles);
+    const fetchFiles = async () => {
+        const files = await getFiles();
+        setFiles(files);
+    }
+    fetchFiles();
   }, []);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = event.target.files;
     if (uploadedFiles && uploadedFiles.length > 0) {
       console.log('Selected files:', uploadedFiles);
-      // Here you would typically handle the file upload to R2/S3
     }
   };
 
@@ -129,6 +90,25 @@ export default function MediaPage() {
     setFileToRename(file);
     setNewName(file.name);
     setRenameDialogOpen(true);
+  };
+
+  const handleDeleteRequest = (file: FileItem) => {
+    setFileToDelete(file);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (fileToDelete) {
+      const result = await deleteFile(fileToDelete.id);
+      if (result.success) {
+        setFiles(files.filter((f) => f.id !== fileToDelete.id));
+        toast({ description: `Successfully deleted "${fileToDelete.name}".` });
+      } else {
+        toast({ variant: 'destructive', description: `Failed to delete "${fileToDelete.name}".` });
+      }
+      setDeleteDialogOpen(false);
+      setFileToDelete(null);
+    }
   };
 
   const handleRenameSubmit = (e: React.FormEvent) => {
@@ -282,7 +262,9 @@ export default function MediaPage() {
                         Rename
                       </DropdownMenuItem>
                       <DropdownMenuItem>Move</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => handleDeleteRequest(file)}>
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -296,6 +278,24 @@ export default function MediaPage() {
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete a file{' '}
+              <span className="font-semibold text-foreground">{fileToDelete?.name}</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -335,7 +335,7 @@ export default function MediaPage() {
               <DialogDescription>
                 Enter a name for your new folder.
               </DialogDescription>
-            </Header>
+            </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="folder-name" className="text-right">

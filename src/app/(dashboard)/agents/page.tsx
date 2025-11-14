@@ -7,7 +7,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -38,20 +48,22 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { aiAgents as initialAgents, channels } from '@/lib/data';
-import type { AIAgent } from '@/lib/types';
+import { createAgent, getAIAgents, getChannels, deleteAgent } from '@/lib/api';
+import type { AIAgent, Channel } from '@/lib/types';
 import { generateAgentPrompt } from '@/ai/flows/generate-agent-prompt';
+import { useToast } from '@/hooks/use-toast';
 
 function CreateAgentDialog({
   onAgentCreate,
 }: {
-  onAgentCreate: (agent: Omit<AIAgent, 'id' | 'channelIds'>) => void;
+  onAgentCreate: (agent: AIAgent) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const { toast } = useToast();
 
   const handleGeneratePrompt = async () => {
     if (!description) return;
@@ -59,30 +71,33 @@ function CreateAgentDialog({
     try {
       const result = await generateAgentPrompt({ agentDescription: description });
       setGeneratedPrompt(result.agentPrompt);
+      toast({ description: "Agent prompt generated successfully." });
     } catch (error) {
       console.error('Failed to generate prompt:', error);
       setGeneratedPrompt('Error: Could not generate prompt.');
+      toast({ variant: "destructive", description: "Failed to generate prompt." });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !generatedPrompt) return;
 
-    onAgentCreate({
+    const newAgent = await createAgent({
       name,
       description,
       prompt: generatedPrompt,
-      provider: 'Gemini', // Default provider for now
+      provider: 'Gemini',
     });
+    onAgentCreate(newAgent);
 
-    // Reset form and close dialog
     setName('');
     setDescription('');
     setGeneratedPrompt('');
     setOpen(false);
+    toast({ description: `Agent "${name}" created successfully.` });
   };
 
   return (
@@ -164,15 +179,38 @@ function CreateAgentDialog({
 }
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<AIAgent[]>(initialAgents);
+  const [agents, setAgents] = useState<AIAgent[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [agentToDelete, setAgentToDelete] = useState<AIAgent | null>(null);
+  const { toast } = useToast();
 
-  const handleCreateAgent = (newAgentData: Omit<AIAgent, 'id' | 'channelIds'>) => {
-    const newAgent: AIAgent = {
-      ...newAgentData,
-      id: `agent-${Date.now()}`,
-      channelIds: [],
+  useEffect(() => {
+    const fetchData = async () => {
+      const [agentsData, channelsData] = await Promise.all([getAIAgents(), getChannels()]);
+      setAgents(agentsData);
+      setChannels(channelsData);
     };
+    fetchData();
+  }, []);
+
+  const handleCreateAgent = (newAgent: AIAgent) => {
     setAgents((prevAgents) => [...prevAgents, newAgent]);
+  };
+  
+  const handleDeleteRequest = (agent: AIAgent) => {
+    setAgentToDelete(agent);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (agentToDelete) {
+      await deleteAgent(agentToDelete.id);
+      setAgents(agents.filter((a) => a.id !== agentToDelete.id));
+      setDeleteDialogOpen(false);
+      setAgentToDelete(null);
+      toast({ description: `Agent "${agentToDelete.name}" deleted.` });
+    }
   };
 
   return (
@@ -205,9 +243,16 @@ export default function AgentsPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem>Edit</DropdownMenuItem>
-                  <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive">
+                  <DropdownMenuItem onClick={() => toast({ description: "Edit not implemented." }) }>
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toast({ description: "Duplicate not implemented." }) }>
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => handleDeleteRequest(agent)}
+                  >
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -242,6 +287,23 @@ export default function AgentsPage() {
           </Card>
         ))}
       </div>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the agent ' '
+              <span className="font-semibold text-foreground">{agentToDelete?.name}</span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

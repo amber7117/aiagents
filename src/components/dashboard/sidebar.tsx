@@ -27,8 +27,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import type { NavItem } from '@/lib/types';
-import { loggedInUser } from '@/lib/data';
+import type { NavItem, User } from '@/lib/types';
+import { getLoggedInUser } from '@/lib/api';
+import React, { useState, useEffect } from 'react';
 
 const navItems: NavItem[] = [
   { href: '/inbox', label: 'Inbox', icon: Inbox },
@@ -44,6 +45,19 @@ const navItems: NavItem[] = [
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
+  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const user = await getLoggedInUser();
+      setLoggedInUser(user);
+    };
+    fetchUser();
+  }, []);
+
+  if (!loggedInUser) {
+    return <div>Loading...</div>; 
+  }
 
   return (
     <aside className="hidden h-screen w-64 flex-col border-r bg-card lg:flex">

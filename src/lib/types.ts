@@ -5,7 +5,7 @@ export type User = {
   name: string;
   avatar: string;
   email: string;
-  role: 'admin' | 'agent';
+  role?: 'admin' | 'agent';
   balance?: number;
 };
 
@@ -23,34 +23,43 @@ export type Channel = {
 
 export type Message = {
   id: string;
-  conversationId: string;
-  sender: 'user' | 'agent' | 'ai';
-  senderId?: string; // For agent
-  content: string;
+  from: 'customer' | 'agent';
+  text: string;
   timestamp: string;
-  status: 'sent' | 'delivered' | 'read';
+  read: boolean;
 };
 
 export type Conversation = {
   id: string;
-  channel: Channel['type'];
-  contact: {
+  customer: {
+    name: string;
+    avatar: string;
+  };
+  channel: {
+    id: string;
+    name: string;
+    type: ChannelType;
+  };
+  startTime: string;
+  status: 'open' | 'closed';
+  agent: {
     id: string;
     name: string;
     avatar: string;
   };
-  lastMessage: Message;
-  unreadCount: number;
+  tags: string[];
+  summary: string;
   messages: Message[];
 };
 
 export type AIAgent = {
   id: string;
   name: string;
-  description: string;
-  provider: 'OpenAI' | 'DeepSeek' | 'Gemini';
+  description?: string;
+  provider?: 'OpenAI' | 'DeepSeek' | 'Gemini';
   prompt: string;
-  channelIds: string[];
+  model: string;
+  channelIds?: string[];
 };
 
 export type NavItem = {
@@ -58,4 +67,18 @@ export type NavItem = {
   label: string;
   icon: LucideIcon;
   isActive?: boolean;
+};
+
+export type FileItem = {
+  id: string;
+  type: 'folder' | 'image';
+  name: string;
+  url?: string;
+  parentId?: string | null;
+};
+
+export type AISettings = {
+  provider: 'google-ai' | 'openai' | 'anthropic' | 'deepseek';
+  apiKey: string;
+  defaultModel: string;
 };
