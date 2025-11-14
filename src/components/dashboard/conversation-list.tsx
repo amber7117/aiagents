@@ -5,7 +5,9 @@ import {
   PlusCircle,
   Search,
   MessageSquare,
+  Send,
 } from "lucide-react";
+import React, { useState, useEffect } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,17 +18,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import conversations from "@/lib/conversations.json";
+import conversationsData from "@/lib/conversations.json";
 import { cn } from "@/lib/utils";
 import { useMobile } from "@/hooks/use-mobile";
-import type { Conversation, ChannelType } from "@/lib/types";
+import type { Conversation, ChannelType, Channel } from "@/lib/types";
 import { WhatsAppLogo } from '@/components/icons/whatsapp-logo';
 import { TelegramLogo } from '@/components/icons/telegram-logo';
 import { FacebookLogo } from '@/components/icons/facebook-logo';
 import { WeChatLogo } from '@/components/icons/wechat-logo';
 import { MiChatLogo } from '@/components/icons/michat-logo';
+import { getChannels } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 const channelColors: Record<ChannelType, string> = {
   WhatsApp: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400 border-green-300 dark:border-green-800',
@@ -46,12 +61,125 @@ const channelIcons: Record<ChannelType, React.ElementType> = {
   MiChat: MiChatLogo,
 };
 
+function NewMessageDialog({ open, onOpenChange, channels }: { open: boolean, onOpenChange: (open: boolean) => void, channels: Channel[] }) {
+  const { toast } = useToast();
+  const [selectedChannel, setSelectedChannel] = useState('');
+  const [recipient, setRecipient] = useState('');
+  const [message, setMessage] = useState('');
+
+  const getRecipientLabel = () => {
+    const channel = channels.find(c => c.id === selectedChannel);
+    if (!channel) return "Recipient";
+    switch(channel.type) {
+        case 'WhatsApp':
+            return "WhatsApp Number";
+        case 'Telegram':
+            return "Telegram User ID";
+        default:
+            return "Recipient ID";
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log({
+        channelId: selectedChannel,
+        recipient,
+        message
+    });
+    toast({
+        title: "Message Sent (Simulated)",
+        description: `Your message to ${recipient} has been sent.`,
+    });
+    onOpenChange(false);
+    // Reset form
+    setSelectedChannel('');
+    setRecipient('');
+    setMessage('');
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[480px]">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Create New Message</DialogTitle>
+            <DialogDescription>
+              Select a channel and recipient to start a new conversation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="channel" className="text-right">
+                Channel
+              </Label>
+              <Select onValueChange={setSelectedChannel} value={selectedChannel}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select a channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {channels.map(channel => (
+                    <SelectItem key={channel.id} value={channel.id}>
+                      <div className="flex items-center gap-2">
+                        {React.createElement(channelIcons[channel.type], { className: 'h-4 w-4' })}
+                        <span>{channel.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="recipient" className="text-right">
+                {getRecipientLabel()}
+              </Label>
+              <Input
+                id="recipient"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="Enter recipient details"
+                className="col-span-3"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="message" className="text-right pt-2">
+                    Message
+                </Label>
+                <Textarea
+                    id="message"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Type your message here..."
+                    className="col-span-3 min-h-[120px]"
+                    required
+                />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={!selectedChannel || !recipient || !message}>
+                <Send className="mr-2 h-4 w-4" />
+                Send Message
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 export default function ConversationList() {
   const isMobile = useMobile();
   const pathname = usePathname();
   const isConversationSelected = pathname.includes('/inbox/') && pathname !== '/inbox';
-  const conversationList = conversations as Conversation[];
+  const conversationList = conversationsData as Conversation[];
+  const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
+  const [channels, setChannels] = useState<Channel[]>([]);
+
+  useEffect(() => {
+    getChannels().then(setChannels);
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -71,7 +199,7 @@ export default function ConversationList() {
             <Button variant="ghost" size="icon">
               <ChevronsLeftRight className="h-5 w-5" />
             </Button>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" onClick={() => setIsNewMessageOpen(true)}>
               <PlusCircle className="h-5 w-5" />
             </Button>
           </div>
@@ -142,6 +270,7 @@ export default function ConversationList() {
           );
         })}
       </div>
+      <NewMessageDialog open={isNewMessageOpen} onOpenChange={setIsNewMessageOpen} channels={channels} />
     </div>
   );
 }
