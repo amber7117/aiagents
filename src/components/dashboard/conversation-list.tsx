@@ -4,6 +4,7 @@ import {
   ChevronsLeftRight,
   PlusCircle,
   Search,
+  MessageSquare,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,11 @@ import conversations from "@/lib/conversations.json";
 import { cn } from "@/lib/utils";
 import { useMobile } from "@/hooks/use-mobile";
 import type { Conversation, ChannelType } from "@/lib/types";
+import { WhatsAppLogo } from '@/components/icons/whatsapp-logo';
+import { TelegramLogo } from '@/components/icons/telegram-logo';
+import { FacebookLogo } from '@/components/icons/facebook-logo';
+import { WeChatLogo } from '@/components/icons/wechat-logo';
+import { MiChatLogo } from '@/components/icons/michat-logo';
 
 const channelColors: Record<ChannelType, string> = {
   WhatsApp: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400 border-green-300 dark:border-green-800',
@@ -29,6 +35,15 @@ const channelColors: Record<ChannelType, string> = {
   MiChat: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400 border-orange-300 dark:border-orange-800',
   Telegram: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-400 border-sky-300 dark:border-sky-800',
   Facebook: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800',
+};
+
+const channelIcons: Record<ChannelType, React.ElementType> = {
+  WhatsApp: WhatsAppLogo,
+  Telegram: TelegramLogo,
+  Facebook: FacebookLogo,
+  Widget: MessageSquare,
+  WeChat: WeChatLogo,
+  MiChat: MiChatLogo,
 };
 
 
@@ -79,49 +94,53 @@ export default function ConversationList() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {conversationList.map((conv) => (
-          <Link
-            href={`/inbox/${conv.id}`}
-            key={conv.id}
-            className={cn(
-                "block border-b p-4 hover:bg-muted/50",
-                pathname === `/inbox/${conv.id}` && "bg-muted"
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className="relative">
-                <img
-                  src={conv.customer.avatar}
-                  alt={conv.customer.name}
-                  className="h-12 w-12 rounded-full"
-                />
-                <span
-                  className={cn(
-                    "absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card",
-                    (conv as any).online ? "bg-green-500" : "bg-gray-400"
-                  )}
-                />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-semibold">{conv.customer.name}</h2>
-                  <p className="text-xs text-muted-foreground">
-                    {conv.messages[conv.messages.length - 1].timestamp.split('T')[1].substring(0,5)}
+        {conversationList.map((conv) => {
+          const Icon = channelIcons[conv.channel.type];
+          return (
+            <Link
+              href={`/inbox/${conv.id}`}
+              key={conv.id}
+              className={cn(
+                  "block border-b p-4 hover:bg-muted/50",
+                  pathname === `/inbox/${conv.id}` && "bg-muted"
+              )}
+            >
+              <div className="flex items-start gap-4">
+                <div className="relative">
+                  <img
+                    src={conv.customer.avatar}
+                    alt={conv.customer.name}
+                    className="h-12 w-12 rounded-full"
+                  />
+                  <span
+                    className={cn(
+                      "absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card",
+                      (conv as any).online ? "bg-green-500" : "bg-gray-400"
+                    )}
+                  />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-semibold">{conv.customer.name}</h2>
+                    <p className="text-xs text-muted-foreground">
+                      {conv.messages[conv.messages.length - 1].timestamp.split('T')[1].substring(0,5)}
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {conv.messages[conv.messages.length - 1].text}
                   </p>
-                </div>
-                <p className="text-sm text-muted-foreground truncate">
-                  {conv.messages[conv.messages.length - 1].text}
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <Badge variant="outline" className={cn(channelColors[conv.channel.type])}>
-                    {conv.channel.name}
-                  </Badge>
-                  {/* <Badge variant="destructive">{conv.unreadCount}</Badge> */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge variant="outline" className={cn("gap-1.5", channelColors[conv.channel.type])}>
+                      {Icon && <Icon className="h-3.5 w-3.5" />}
+                      {conv.channel.name}
+                    </Badge>
+                    {/* <Badge variant="destructive">{conv.unreadCount}</Badge> */}
+                  </div>
                 </div>
               </div>
-            </div>
-          </Link>
-        ))}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
