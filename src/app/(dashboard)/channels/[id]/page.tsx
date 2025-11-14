@@ -14,14 +14,14 @@ import { getChannels, updateChannel } from '@/lib/api';
 import type { Channel } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState } from 'react';
-import { notFound, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 
-export default function ChannelEditPage({ params }: { params: { id: string } }) {
-  const [channel, setChannel] = useState<Channel | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [name, setName] = useState('');
+// This component handles the client-side logic for editing a channel.
+function ChannelEditForm({ channel: initialChannel }: { channel: Channel }) {
+  const [channel, setChannel] = useState<Channel>(initialChannel);
+  const [name, setName] = useState(initialChannel.name);
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -29,26 +29,12 @@ export default function ChannelEditPage({ params }: { params: { id: string } }) 
   const router = useRouter();
 
   useEffect(() => {
-    const fetchChannel = async () => {
-      const channels = await getChannels();
-      const currentChannel = channels.find((c) => c.id === params.id);
-      if (currentChannel) {
-        setChannel(currentChannel);
-        setName(currentChannel.name);
-        // Set mock credentials based on channel type for demonstration
-        if (currentChannel.type === 'WhatsApp') setPhoneNumber('123-456-7890');
-        if (currentChannel.type === 'Telegram') setApiKey('TG-abcdef123456');
-      } else {
-        notFound();
-      }
-      setLoading(false);
-    };
-
-    fetchChannel();
-  }, [params.id]);
+    // Set mock credentials based on channel type for demonstration
+    if (channel.type === 'WhatsApp') setPhoneNumber('123-456-7890');
+    if (channel.type === 'Telegram') setApiKey('TG-abcdef123456');
+  }, [channel.type]);
 
   const handleSave = async () => {
-    if (!channel) return;
     try {
       await updateChannel(channel.id, { name });
       toast({
@@ -64,57 +50,48 @@ export default function ChannelEditPage({ params }: { params: { id: string } }) 
       });
     }
   };
-  
+
   const renderCredentials = () => {
-    if (!channel) return null;
     switch (channel.type) {
-        case 'WhatsApp':
-            return (
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="e.g., 15551234567" />
-                </div>
-            )
-        case 'Telegram':
-        case 'Facebook':
-            return (
-                <>
-                    <div className="space-y-2">
-                        <Label htmlFor="api-key">API Key</Label>
-                        <Input id="api-key" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter API Key" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="api-secret">API Secret</Label>
-                        <Input id="api-secret" type="password" value={apiSecret} onChange={e => setApiSecret(e.target.value)} placeholder="Enter API Secret" />
-                    </div>
-                </>
-            )
-        default:
-            return <p className="text-sm text-muted-foreground">This channel type does not require special credentials.</p>;
+      case 'WhatsApp':
+        return (
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input id="phone" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} placeholder="e.g., 15551234567" />
+          </div>
+        )
+      case 'Telegram':
+      case 'Facebook':
+        return (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="api-key">API Key</Label>
+              <Input id="api-key" type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter API Key" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="api-secret">API Secret</Label>
+              <Input id="api-secret" type="password" value={apiSecret} onChange={e => setApiSecret(e.target.value)} placeholder="Enter API Secret" />
+            </div>
+          </>
+        )
+      default:
+        return <p className="text-sm text-muted-foreground">This channel type does not require special credentials.</p>;
     }
-  }
-
-  if (loading) {
-    return <div>Loading channel details...</div>;
-  }
-
-  if (!channel) {
-    return notFound();
   }
 
   return (
     <div className="space-y-6">
-        <div>
-            <Button variant="ghost" asChild>
-                <Link href="/channels" className="mb-4 inline-flex items-center gap-2 text-sm">
-                    <ChevronLeft className="h-4 w-4" />
-                    Back to Channels
-                </Link>
-            </Button>
-            <h1 className="text-2xl font-bold tracking-tight">Edit Channel</h1>
-            <p className="text-muted-foreground">Manage settings for {channel.name}.</p>
-        </div>
-      
+      <div>
+        <Button variant="ghost" asChild>
+          <Link href="/channels" className="mb-4 inline-flex items-center gap-2 text-sm">
+            <ChevronLeft className="h-4 w-4" />
+            Back to Channels
+          </Link>
+        </Button>
+        <h1 className="text-2xl font-bold tracking-tight">Edit Channel</h1>
+        <p className="text-muted-foreground">Manage settings for {channel.name}.</p>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>General Settings</CardTitle>
@@ -150,4 +127,25 @@ export default function ChannelEditPage({ params }: { params: { id: string } }) 
       </div>
     </div>
   );
+}
+
+// Server Component Wrapper
+export default async function ChannelEditPage({ params }: { params: { id: string } }) {
+  const channels = await getChannels();
+  const currentChannel = channels.find((c) => c.id === params.id);
+
+  if (!currentChannel) {
+    const { notFound } = await import('next/navigation');
+    notFound();
+  }
+
+  return <ChannelEditForm channel={currentChannel} />;
+}
+
+// generateStaticParams must be in a server component.
+export async function generateStaticParams() {
+  const channels = await getChannels();
+  return channels.map((channel) => ({
+    id: channel.id,
+  }));
 }
