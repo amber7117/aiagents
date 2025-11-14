@@ -3,7 +3,6 @@
 import {
   Bot,
   ChevronDown,
-  Cpu,
   Image,
   Inbox,
   LifeBuoy,
@@ -40,7 +39,6 @@ const navItems: NavItem[] = [
   { href: '/marketing', label: 'Marketing', icon: Megaphone },
   { href: '/wallet', label: 'Wallet', icon: Wallet },
   { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/settings/ai', label: 'AI Setting', icon: Cpu },
 ];
 
 export default function DashboardSidebar() {

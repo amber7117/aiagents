@@ -1,6 +1,22 @@
-import type { Channel, AIAgent, User, FileItem, AISettings } from './types';
+import type { Channel, AIAgent, User, FileItem, AISettings, ChannelType } from './types';
+import { WhatsAppLogo } from '@/components/icons/whatsapp-logo';
+import { TelegramLogo } from '@/components/icons/telegram-logo';
+import { FacebookLogo } from '@/components/icons/facebook-logo';
+import { WeChatLogo } from '@/components/icons/wechat-logo';
+import { MiChatLogo } from '@/components/icons/michat-logo';
+import { MessageSquare } from 'lucide-react';
+import React from 'react';
 
 // Mock Data
+
+export const channelIcons: Record<ChannelType, React.ElementType> = {
+  WhatsApp: WhatsAppLogo,
+  Telegram: TelegramLogo,
+  Facebook: FacebookLogo,
+  Widget: MessageSquare,
+  WeChat: WeChatLogo,
+  MiChat: MiChatLogo,
+};
 
 export const users: User[] = [
   { id: 'user-1', name: 'Alice', email: 'alice@example.com', avatar: 'https://i.pravatar.cc/150?u=alice', role: 'admin' },
