@@ -95,7 +95,7 @@ const initialFiles: FileItem[] = [
 
 export default function MediaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const [files, setFiles] = useState<FileItem[]>(initialFiles); // Initialize with non-seeded URLs
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -105,10 +105,11 @@ export default function MediaPage() {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    // This effect runs only on the client, after the initial render.
     setIsClient(true);
     const dailySeed = getDailySeed();
     const seededFiles = initialFiles.map(file => {
-        if (file.url) {
+        if (file.url && file.url.includes('{{dailySeed}}')) {
             return { ...file, url: file.url.replace('{{dailySeed}}', dailySeed) };
         }
         return file;
@@ -250,7 +251,7 @@ export default function MediaPage() {
                 onClick={file.type === 'folder' ? () => handleFolderClick(file.id) : undefined}
               >
                 <div className={`flex aspect-square w-full items-center justify-center bg-muted ${file.type === 'folder' ? 'cursor-pointer' : ''}`}>
-                  {file.type === 'image' && file.url ? (
+                  {file.type === 'image' && file.url && !file.url.includes('{{dailySeed}}') ? (
                     <Image
                       src={file.url}
                       alt={file.name}
@@ -258,9 +259,12 @@ export default function MediaPage() {
                       height={200}
                       className="h-full w-full object-cover"
                     />
-                  ) : (
+                  ) : file.type === 'folder' ? (
                     <Folder className="h-16 w-16 text-muted-foreground" />
-                  )}
+                  ) : (
+                    <div className="h-full w-full bg-muted animate-pulse"></div>
+                  )
+                  }
                 </div>
                 <div className="absolute right-1 top-1">
                   <DropdownMenu>
@@ -331,7 +335,7 @@ export default function MediaPage() {
               <DialogDescription>
                 Enter a name for your new folder.
               </DialogDescription>
-            </DialogHeader>
+            </Header>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="folder-name" className="text-right">
