@@ -18,13 +18,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Loading, Skeleton } from '@/components/ui/loading';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   getAnalyticsStats,
   getConversationVolume,
   getResponseTime,
   getSatisfactionRatings,
 } from '@/lib/api';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { RefreshCw, AlertTriangle } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -38,16 +42,27 @@ import {
   YAxis,
 } from 'recharts';
 
+type DateRange = 'last-24-hours' | 'last-7-days' | 'last-30-days' | 'last-90-days';
+
 export default function AnalyticsPage() {
   const [stats, setStats] = useState<any>(null);
   const [conversationVolume, setConversationVolume] = useState<any[]>([]);
   const [responseTime, setResponseTime] = useState<any[]>([]);
   const [satisfactionRatings, setSatisfactionRatings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>('last-7-days');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  const fetchData = useCallback(async (showRefreshing = false) => {
+    try {
+      if (showRefreshing) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
       const [
         statsData,
         volumeData,
@@ -59,21 +74,113 @@ export default function AnalyticsPage() {
         getResponseTime(),
         getSatisfactionRatings(),
       ]);
+
       setStats(statsData);
       setConversationVolume(volumeData);
       setResponseTime(responseTimeData);
       setSatisfactionRatings(satisfactionData);
+    } catch (err) {
+      console.error('Failed to fetch analytics data:', err);
+      setError('Failed to load analytics data. Please try again.');
+    } finally {
       setLoading(false);
-    };
-    fetchData();
+      setRefreshing(false);
+    }
   }, []);
 
-  if (loading) {
+  useEffect(() => {
+    fetchData();
+  }, [fetchData, dateRange]);
+
+  const handleRefresh = () => {
+    fetchData(true);
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    fetchData();
+  };
+
+  if (loading && !refreshing) {
     return (
-        <div className="flex items-center justify-center h-full">
-            <p>Loading analytics data...</p>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-32 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-[180px]" />
         </div>
-    )
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-5 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-4 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[300px] w-full" />
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-48 mb-2" />
+                <Skeleton className="h-4 w-64" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-[300px] w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+            <p className="text-muted-foreground">
+              Get insights into your customer interactions.
+            </p>
+          </div>
+        </div>
+
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRetry}
+              className="ml-2"
+            >
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   return (
@@ -85,18 +192,37 @@ export default function AnalyticsPage() {
             Get insights into your customer interactions.
           </p>
         </div>
-        <Select defaultValue="last-7-days">
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Select date range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="last-24-hours">Last 24 hours</SelectItem>
-            <SelectItem value="last-7-days">Last 7 days</SelectItem>
-            <SelectItem value="last-30-days">Last 30 days</SelectItem>
-            <SelectItem value="last-90-days">Last 90 days</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Select value={dateRange} onValueChange={(value: DateRange) => setDateRange(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select date range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="last-24-hours">Last 24 hours</SelectItem>
+              <SelectItem value="last-7-days">Last 7 days</SelectItem>
+              <SelectItem value="last-30-days">Last 30 days</SelectItem>
+              <SelectItem value="last-90-days">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {refreshing && (
+        <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+          <Loading size="sm" />
+          <span className="text-sm text-muted-foreground">Updating data...</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -104,9 +230,9 @@ export default function AnalyticsPage() {
             <CardTitle>Total Conversations</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{stats.totalConversations.value}</p>
+            <p className="text-3xl font-bold">{stats?.totalConversations?.value || 0}</p>
             <p className="text-sm text-green-500">
-              {stats.totalConversations.change} vs last period
+              {stats?.totalConversations?.change || '+0%'} vs last period
             </p>
           </CardContent>
         </Card>
@@ -115,9 +241,9 @@ export default function AnalyticsPage() {
             <CardTitle>Avg. Response Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{stats.avgResponseTime.value}</p>
+            <p className="text-3xl font-bold">{stats?.avgResponseTime?.value || '0s'}</p>
             <p className="text-sm text-red-500">
-              {stats.avgResponseTime.change} vs last period
+              {stats?.avgResponseTime?.change || '+0%'} vs last period
             </p>
           </CardContent>
         </Card>
@@ -126,9 +252,9 @@ export default function AnalyticsPage() {
             <CardTitle>Satisfaction Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{stats.satisfactionRate.value}</p>
+            <p className="text-3xl font-bold">{stats?.satisfactionRate?.value || '0%'}</p>
             <p className="text-sm text-green-500">
-              {stats.satisfactionRate.change} vs last period
+              {stats?.satisfactionRate?.change || '+0%'} vs last period
             </p>
           </CardContent>
         </Card>
@@ -137,7 +263,7 @@ export default function AnalyticsPage() {
             <CardTitle>Active Agents</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{stats.activeAgents.value}</p>
+            <p className="text-3xl font-bold">{stats?.activeAgents?.value || 0}</p>
             <p className="text-sm text-muted-foreground">Online now</p>
           </CardContent>
         </Card>
@@ -147,7 +273,7 @@ export default function AnalyticsPage() {
         <CardHeader>
           <CardTitle>Conversation Volume</CardTitle>
           <CardDescription>
-            Conversations received over the last 24 hours.
+            Conversations received over the selected time period.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -163,12 +289,13 @@ export default function AnalyticsPage() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Average Response Time</CardTitle>
             <CardDescription>
-              Average first response time over the last 7 days.
+              Average first response time over the selected period.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -192,7 +319,7 @@ export default function AnalyticsPage() {
           <CardHeader>
             <CardTitle>Satisfaction Ratings</CardTitle>
             <CardDescription>
-              Customer satisfaction ratings over the last 6 months.
+              Customer satisfaction ratings over the selected period.
             </CardDescription>
           </CardHeader>
           <CardContent>

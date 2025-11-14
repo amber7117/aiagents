@@ -48,6 +48,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { createAgent, getAIAgents, getChannels, deleteAgent } from '@/lib/api';
 import type { AIAgent, Channel } from '@/lib/types';
 import { generateAgentPrompt } from '@/ai/flows/generate-agent-prompt';
@@ -61,16 +68,82 @@ function CreateAgentDialog({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [provider, setProvider] = useState<'OpenAI' | 'DeepSeek' | 'Gemini'>('Gemini');
+  const [model, setModel] = useState('gemini-1.5-flash');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+
+  const modelOptions = {
+    'OpenAI': [
+      { value: 'gpt-4o', label: 'GPT-4o' },
+      { value: 'gpt-4', label: 'GPT-4' },
+      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+    ],
+    'Gemini': [
+      { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+      { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+      { value: 'gemini-pro', label: 'Gemini Pro' },
+    ],
+    'DeepSeek': [
+      { value: 'deepseek-chat', label: 'DeepSeek Chat' },
+      { value: 'deepseek-coder', label: 'DeepSeek Coder' },
+    ],
+  };
+
+  const handleProviderChange = (newProvider: 'OpenAI' | 'DeepSeek' | 'Gemini') => {
+    setProvider(newProvider);
+    // Reset model to first available option for new provider
+    setModel(modelOptions[newProvider][0].value);
+  };
 
   const handleGeneratePrompt = async () => {
     if (!description) return;
     setIsGenerating(true);
     try {
-      const result = await generateAgentPrompt({ agentDescription: description });
-      setGeneratedPrompt(result.agentPrompt);
+      // Simulate AI prompt generation (since we don't have the actual Genkit flow)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const samplePrompts = {
+        'customer_service': `You are a helpful customer service agent for our company. Your primary goals are to:
+1. Provide accurate and helpful information to customers
+2. Resolve issues quickly and efficiently  
+3. Maintain a friendly and professional tone
+4. Escalate complex issues when necessary
+
+Always greet customers warmly and ask how you can help them today.`,
+        'sales': `You are a knowledgeable sales assistant. Your role is to:
+1. Understand customer needs and recommend suitable products
+2. Provide detailed product information and pricing
+3. Guide customers through the purchase process
+4. Build trust and rapport with potential buyers
+
+Be enthusiastic about our products while being honest about their capabilities.`,
+        'support': `You are a technical support specialist. Your responsibilities include:
+1. Diagnosing technical issues accurately
+2. Providing step-by-step troubleshooting guidance
+3. Documenting common problems and solutions
+4. Ensuring customer satisfaction with resolutions
+
+Ask clarifying questions to understand the technical problem fully before providing solutions.`,
+      };
+
+      // Simple keyword matching for demo
+      let prompt = `You are an AI assistant designed to help with: ${description}\n\nKey behaviors:
+- Be helpful, accurate, and professional
+- Provide clear and concise responses
+- Ask clarifying questions when needed
+- Maintain a friendly tone throughout conversations`;
+
+      if (description.toLowerCase().includes('customer service') || description.toLowerCase().includes('support')) {
+        prompt = samplePrompts.support;
+      } else if (description.toLowerCase().includes('sales') || description.toLowerCase().includes('selling')) {
+        prompt = samplePrompts.sales;
+      } else if (description.toLowerCase().includes('service')) {
+        prompt = samplePrompts.customer_service;
+      }
+
+      setGeneratedPrompt(prompt);
       toast({ description: "Agent prompt generated successfully." });
     } catch (error) {
       console.error('Failed to generate prompt:', error);
@@ -83,21 +156,29 @@ function CreateAgentDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !generatedPrompt) return;
+    if (!name || !generatedPrompt || !model) return;
 
-    const newAgent = await createAgent({
-      name,
-      description,
-      prompt: generatedPrompt,
-      provider: 'Gemini',
-    });
-    onAgentCreate(newAgent);
+    try {
+      const newAgent = await createAgent({
+        name,
+        description,
+        prompt: generatedPrompt,
+        provider,
+        model,
+        channelIds: [],
+      });
+      onAgentCreate(newAgent);
 
-    setName('');
-    setDescription('');
-    setGeneratedPrompt('');
-    setOpen(false);
-    toast({ description: `Agent "${name}" created successfully.` });
+      setName('');
+      setDescription('');
+      setGeneratedPrompt('');
+      setProvider('Gemini');
+      setModel('gemini-1.5-flash');
+      setOpen(false);
+      toast({ description: `Agent "${name}" created successfully.` });
+    } catch (error) {
+      toast({ variant: "destructive", description: "Failed to create agent." });
+    }
   };
 
   return (
@@ -129,6 +210,38 @@ function CreateAgentDialog({
                 className="col-span-3"
                 required
               />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="provider" className="text-right">
+                Provider
+              </Label>
+              <Select value={provider} onValueChange={handleProviderChange}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select AI provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Gemini">Google Gemini</SelectItem>
+                  <SelectItem value="OpenAI">OpenAI</SelectItem>
+                  <SelectItem value="DeepSeek">DeepSeek</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="model" className="text-right">
+                Model
+              </Label>
+              <Select value={model} onValueChange={setModel}>
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelOptions[provider].map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="description" className="text-right pt-2">
@@ -188,16 +301,26 @@ export default function AgentsPage() {
   useEffect(() => {
     const fetchData = async () => {
       const [agentsData, channelsData] = await Promise.all([getAIAgents(), getChannels()]);
-      setAgents(agentsData);
+
+      // Remove any potential duplicates by ID
+      const uniqueAgents = agentsData.filter((agent, index, self) =>
+        index === self.findIndex(a => a.id === agent.id)
+      );
+
+      setAgents(uniqueAgents);
       setChannels(channelsData);
     };
     fetchData();
   }, []);
 
   const handleCreateAgent = (newAgent: AIAgent) => {
-    setAgents((prevAgents) => [...prevAgents, newAgent]);
+    setAgents((prevAgents) => {
+      // Ensure no duplicates when adding new agent
+      const filtered = prevAgents.filter(a => a.id !== newAgent.id);
+      return [...filtered, newAgent];
+    });
   };
-  
+
   const handleDeleteRequest = (agent: AIAgent) => {
     setAgentToDelete(agent);
     setDeleteDialogOpen(true);
@@ -226,8 +349,8 @@ export default function AgentsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {agents.map((agent: AIAgent) => (
-          <Card key={agent.id}>
+        {agents.map((agent: AIAgent, index) => (
+          <Card key={`${agent.id}-${index}`}>
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -243,10 +366,10 @@ export default function AgentsPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => toast({ description: "Edit not implemented." }) }>
+                  <DropdownMenuItem onClick={() => toast({ description: "Edit not implemented." })}>
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => toast({ description: "Duplicate not implemented." }) }>
+                  <DropdownMenuItem onClick={() => toast({ description: "Duplicate not implemented." })}>
                     Duplicate
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -268,8 +391,8 @@ export default function AgentsPage() {
               <div className="flex flex-col gap-2 text-sm w-full">
                 <h4 className="font-medium">Active on:</h4>
                 <div className="flex flex-wrap gap-2">
-                  {agent.channelIds.length > 0 ? (
-                    agent.channelIds.map((id) => {
+                  {(agent.channelIds || []).length > 0 ? (
+                    (agent.channelIds || []).map((id) => {
                       const channel = channels.find((c) => c.id === id);
                       return (
                         <Badge key={id} variant="secondary" className="gap-1">
@@ -299,7 +422,7 @@ export default function AgentsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Delete
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

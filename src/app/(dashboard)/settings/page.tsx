@@ -44,97 +44,97 @@ const modelOptions: Record<Provider, { value: string; label: string }[]> = {
 };
 
 function AITabContent() {
-    const { toast } = useToast();
-    const [settings, setSettings] = useState<AISettings | null>(null);
+  const { toast } = useToast();
+  const [settings, setSettings] = useState<AISettings | null>(null);
 
-    useEffect(() => {
-      const fetchSettings = async () => {
-        const savedSettings = await getAISettings();
-        setSettings(savedSettings);
-      };
-      fetchSettings();
-    }, []);
-
-    const handleProviderChange = (value: string) => {
-        const newProvider = value as Provider;
-        if (settings) {
-            setSettings({
-                ...settings,
-                provider: newProvider,
-                defaultModel: modelOptions[newProvider][0].value,
-            });
-        }
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const savedSettings = await getAISettings();
+      setSettings(savedSettings);
     };
+    fetchSettings();
+  }, []);
 
-    const handleSave = async () => {
-        if (settings) {
-            await saveAISettings(settings);
-            toast({
-                title: 'Settings Saved',
-                description: 'Your AI settings have been successfully saved.',
-            });
-        }
-    };
-
-    if (!settings) {
-        return <div>Loading AI settings...</div>;
+  const handleProviderChange = (value: string) => {
+    const newProvider = value as Provider;
+    if (settings) {
+      setSettings({
+        ...settings,
+        provider: newProvider,
+        defaultModel: modelOptions[newProvider][0].value,
+      });
     }
+  };
 
-    return (
-        <Card>
-          <CardHeader>
-            <CardTitle>AI Provider</CardTitle>
-            <CardDescription>
-              选择并配置您首选的 AI 提供商。
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="ai-provider">AI Provider</Label>
-              <Select value={settings.provider} onValueChange={handleProviderChange}>
-                <SelectTrigger id="ai-provider">
-                  <SelectValue placeholder="Select a provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="google-ai">Google AI (Gemini)</SelectItem>
-                  <SelectItem value="openai">OpenAI (GPT-4)</SelectItem>
-                  <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                  <SelectItem value="deepseek">DeepSeek</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="api-key">API Key</Label>
-              <Input
-                id="api-key"
-                type="password"
-                placeholder="Enter your API key"
-                value={settings.apiKey}
-                onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="default-model">Default Model</Label>
-              <Select value={settings.defaultModel} onValueChange={(value) => setSettings({ ...settings, defaultModel: value }) }>
-                <SelectTrigger id="default-model">
-                  <SelectValue placeholder="Select a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {modelOptions[settings.provider].map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-muted-foreground">
-                这是将在整个应用程序的 AI 功能中使用的默认模型。
-              </p>
-            </div>
-            <Button onClick={handleSave}>Save AI Settings</Button>
-          </CardContent>
-        </Card>
-    )
+  const handleSave = async () => {
+    if (settings) {
+      await saveAISettings(settings);
+      toast({
+        title: 'Settings Saved',
+        description: 'Your AI settings have been successfully saved.',
+      });
+    }
+  };
+
+  if (!settings) {
+    return <div>Loading AI settings...</div>;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>AI Provider</CardTitle>
+        <CardDescription>
+          选择并配置您首选的 AI 提供商。
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="ai-provider">AI Provider</Label>
+          <Select value={settings.provider} onValueChange={handleProviderChange}>
+            <SelectTrigger id="ai-provider">
+              <SelectValue placeholder="Select a provider" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="google-ai">Google AI (Gemini)</SelectItem>
+              <SelectItem value="openai">OpenAI (GPT-4)</SelectItem>
+              <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+              <SelectItem value="deepseek">DeepSeek</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="api-key">API Key</Label>
+          <Input
+            id="api-key"
+            type="password"
+            placeholder="Enter your API key"
+            value={settings.apiKey}
+            onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="default-model">Default Model</Label>
+          <Select value={settings.defaultModel} onValueChange={(value) => setSettings({ ...settings, defaultModel: value })}>
+            <SelectTrigger id="default-model">
+              <SelectValue placeholder="Select a model" />
+            </SelectTrigger>
+            <SelectContent>
+              {modelOptions[settings.provider].map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-sm text-muted-foreground">
+            这是将在整个应用程序的 AI 功能中使用的默认模型。
+          </p>
+        </div>
+        <Button onClick={handleSave}>Save AI Settings</Button>
+      </CardContent>
+    </Card>
+  )
 }
 
 
@@ -144,19 +144,19 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const fetchUser = async () => {
-        const loggedInUser = await getLoggedInUser();
-        setUser(loggedInUser);
+      const loggedInUser = await getLoggedInUser();
+      setUser(loggedInUser);
     };
     fetchUser();
   }, []);
 
   const handleProfileUpdate = async () => {
     if (user) {
-        await updateUser(user.id, { name: user.name, email: user.email });
-        toast({
-            title: "Profile Updated",
-            description: "Your profile has been successfully updated.",
-        });
+      await updateUser(user.id, { name: user.name, email: user.email });
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
     }
   };
 
@@ -165,8 +165,8 @@ export default function SettingsPage() {
   const handleCopyScript = () => {
     navigator.clipboard.writeText(widgetScript);
     toast({
-        title: "Copied!",
-        description: "The widget script has been copied to your clipboard.",
+      title: "Copied!",
+      description: "The widget script has been copied to your clipboard.",
     });
   };
 
@@ -202,11 +202,11 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
-                <Input id="name" value={user.name} onChange={(e) => setUser({...user, name: e.target.value})} />
+                <Input id="name" value={user.name} onChange={(e) => setUser({ ...user, name: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={user.email} onChange={(e) => setUser({...user, email: e.target.value})} />
+                <Input id="email" type="email" value={user.email} onChange={(e) => setUser({ ...user, email: e.target.value })} />
               </div>
               <Button onClick={handleProfileUpdate}>Save Changes</Button>
             </CardContent>
@@ -240,35 +240,195 @@ export default function SettingsPage() {
         <TabsContent value="account" className="mt-6">
           <Card>
             <CardHeader>
-                <CardTitle>Account</CardTitle>
-                <CardDescription>Manage your account settings.</CardDescription>
+              <CardTitle>Account</CardTitle>
+              <CardDescription>Manage your account settings and security.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <p>Account settings will be available in a future update.</p>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium">Account Information</h3>
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <Label>Account ID</Label>
+                    <p className="text-sm text-muted-foreground">{user.id}</p>
+                  </div>
+                  <div>
+                    <Label>Member Since</Label>
+                    <p className="text-sm text-muted-foreground">January 2024</p>
+                  </div>
+                  <div>
+                    <Label>Subscription Plan</Label>
+                    <p className="text-sm text-muted-foreground">Professional Plan</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Security</h3>
+                <Button variant="outline">Change Password</Button>
+                <div>
+                  <Button variant="outline">Enable Two-Factor Authentication</Button>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Add an extra layer of security to your account.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-destructive">Danger Zone</h3>
+                <div className="border border-destructive/20 rounded-lg p-4">
+                  <h4 className="font-medium">Delete Account</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Once you delete your account, there is no going back. Please be certain.
+                  </p>
+                  <Button variant="destructive" className="mt-2">Delete Account</Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="appearance" className="mt-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Appearance</CardTitle>
-                    <CardDescription>Customize the look and feel of the application.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p>Appearance settings will be available in a future update.</p>
-                </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Appearance</CardTitle>
+              <CardDescription>Customize the look and feel of the application.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label>Theme</Label>
+                <Select defaultValue="system">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="system">System</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  Choose your preferred theme for the application.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Language</Label>
+                <Select defaultValue="en">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="zh">中文</SelectItem>
+                    <SelectItem value="es">Español</SelectItem>
+                    <SelectItem value="fr">Français</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Font Size</Label>
+                <Select defaultValue="medium">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="large">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Sidebar</Label>
+                <div className="flex items-center space-x-2">
+                  <input type="checkbox" defaultChecked className="rounded" />
+                  <span className="text-sm">Show sidebar by default</span>
+                </div>
+              </div>
+
+              <Button>Save Appearance Settings</Button>
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="notifications" className="mt-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Notifications</CardTitle>
-                    <CardDescription>Manage your notification preferences.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p>Notification settings will be available in a future update.</p>
-                </CardContent>
-            </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Notifications</CardTitle>
+              <CardDescription>Manage your notification preferences.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium">Email Notifications</h3>
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>New Messages</Label>
+                      <p className="text-sm text-muted-foreground">Get notified when you receive new messages</p>
+                    </div>
+                    <input type="checkbox" defaultChecked className="rounded" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Channel Updates</Label>
+                      <p className="text-sm text-muted-foreground">Notifications about channel connection status</p>
+                    </div>
+                    <input type="checkbox" defaultChecked className="rounded" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Marketing Campaigns</Label>
+                      <p className="text-sm text-muted-foreground">Updates about your marketing campaigns</p>
+                    </div>
+                    <input type="checkbox" className="rounded" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium">Push Notifications</h3>
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Real-time Messages</Label>
+                      <p className="text-sm text-muted-foreground">Instant notifications for new messages</p>
+                    </div>
+                    <input type="checkbox" defaultChecked className="rounded" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>AI Agent Alerts</Label>
+                      <p className="text-sm text-muted-foreground">Notifications from your AI agents</p>
+                    </div>
+                    <input type="checkbox" defaultChecked className="rounded" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-medium">Quiet Hours</h3>
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Enable Quiet Hours</Label>
+                      <p className="text-sm text-muted-foreground">Disable notifications during specified hours</p>
+                    </div>
+                    <input type="checkbox" className="rounded" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Start Time</Label>
+                      <Input type="time" defaultValue="22:00" />
+                    </div>
+                    <div>
+                      <Label>End Time</Label>
+                      <Input type="time" defaultValue="08:00" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button>Save Notification Settings</Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

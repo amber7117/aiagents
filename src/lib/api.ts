@@ -6,16 +6,36 @@ import type { User, AIAgent, Channel, Conversation, FileItem, AISettings, Messag
 // Simulate a network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Generate unique ID with timestamp and random component
+const generateUniqueId = (prefix: string) => {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+};
+
 const conversations: Conversation[] = conversationsData as Conversation[];
 
 // API functions
 export async function getLoggedInUser(): Promise<User> {
     await delay(100);
+
+    // Check if user is stored in localStorage (for demo purposes)
+    if (typeof window !== 'undefined') {
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+            try {
+                return JSON.parse(storedUser);
+            } catch (error) {
+                console.error('Failed to parse stored user:', error);
+                localStorage.removeItem('user');
+            }
+        }
+    }
+
+    // Fallback to default user
     return users[0];
 }
 export async function getUsers(): Promise<User[]> {
-  await delay(500);
-  return users;
+    await delay(500);
+    return users;
 }
 
 export async function updateUser(userId: string, updates: Partial<User>): Promise<User> {
@@ -30,19 +50,19 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
 }
 
 export async function getAIAgents(): Promise<AIAgent[]> {
-  await delay(500);
-  return aiAgents;
+    await delay(500);
+    return aiAgents;
 }
 
 export async function getChannels(): Promise<Channel[]> {
-  await delay(500);
-  return channels;
+    await delay(500);
+    return channels;
 }
 
 export async function addChannel({ name, type }: { name: string, type: ChannelType }): Promise<Channel> {
     await delay(500);
     const newChannel: Channel = {
-        id: `ch-${Date.now()}`,
+        id: generateUniqueId('ch'),
         name,
         type,
         status: 'offline',
@@ -54,8 +74,8 @@ export async function addChannel({ name, type }: { name: string, type: ChannelTy
 }
 
 export async function getConversations(): Promise<Conversation[]> {
-  await delay(500);
-  return conversations;
+    await delay(500);
+    return conversations;
 }
 
 export async function getConversation(id: string): Promise<Conversation | undefined> {
@@ -76,7 +96,7 @@ export async function sendMessage(conversationId: string, text: string): Promise
         throw new Error('Conversation not found');
     }
     const newMessage: Message = {
-        id: `msg-${Date.now()}`,
+        id: generateUniqueId('msg'),
         from: 'agent',
         text,
         timestamp: new Date().toISOString(),
@@ -136,14 +156,14 @@ export async function getSatisfactionRatings() {
 
 
 export async function createAgent(agent: Omit<AIAgent, 'id'>): Promise<AIAgent> {
-  await delay(500);
-  const newAgent: AIAgent = {
-    id: `agent-${Date.now()}`,
-    ...agent,
-    channelIds: [],
-  };
-  aiAgents.push(newAgent);
-  return newAgent;
+    await delay(500);
+    const newAgent: AIAgent = {
+        id: generateUniqueId('agent'),
+        ...agent,
+        channelIds: [],
+    };
+    aiAgents.push(newAgent);
+    return newAgent;
 }
 
 export async function deleteAgent(agentId: string): Promise<{ success: boolean }> {
@@ -162,11 +182,11 @@ export async function deleteAgent(agentId: string): Promise<{ success: boolean }
 }
 
 export async function deleteFile(fileId: string): Promise<{ success: boolean }> {
-  await delay(300);
-  const index = files.findIndex((f) => f.id === fileId);
-  if (index > -1) {
-    files.splice(index, 1);
-    return { success: true };
-  }
-  return { success: false };
+    await delay(300);
+    const index = files.findIndex((f) => f.id === fileId);
+    if (index > -1) {
+        files.splice(index, 1);
+        return { success: true };
+    }
+    return { success: false };
 }

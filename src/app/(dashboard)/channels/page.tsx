@@ -142,23 +142,424 @@ function WhatsAppQRDialog({
   qr,
   open,
   onOpenChange,
+  onConnectionSuccess,
 }: {
   qr: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onConnectionSuccess?: () => void;
 }) {
+  const [status, setStatus] = useState<'generating' | 'ready' | 'scanning' | 'success' | 'expired' | 'error'>('generating');
+  const [countdown, setCountdown] = useState(60);
+  const [instructions, setInstructions] = useState<string[]>([]);
+  const [qrId, setQrId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setStatus('generating');
+      setCountdown(60);
+      setQrId(null);
+      return;
+    }
+
+    if (qr) {
+      setStatus('ready');
+      // Start checking for scan status
+      const pollInterval = setInterval(async () => {
+        if (qrId) {
+          try {
+            const response = await fetch('/api/whatsapp/qr', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ qrId, action: 'check-status' })
+            });
+            const data = await response.json();
+
+            if (data.status === 'scanned') {
+              setStatus('success');
+              clearInterval(pollInterval);
+              setTimeout(() => {
+                onConnectionSuccess?.();
+                onOpenChange(false);
+              }, 2000);
+            }
+          } catch (error) {
+            console.error('Failed to check QR status:', error);
+          }
+        }
+      }, 2000);
+
+      return () => clearInterval(pollInterval);
+    }
+  }, [qr, qrId, open, onConnectionSuccess, onOpenChange]);
+
+  useEffect(() => {
+    if (status === 'ready' && countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            setStatus('expired');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [status, countdown]);
+
+  const handleRefreshQR = async () => {
+    setStatus('generating');
+    setCountdown(60);
+    // Trigger QR regeneration by calling parent component's refresh logic
+    window.location.reload(); // Simple approach, could be improved
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Scan WhatsApp QR Code</DialogTitle>
+          <DialogTitle>连接 WhatsApp</DialogTitle>
           <DialogDescription>
-            Open WhatsApp on your phone and scan the code to connect.
+            使用 Bailey 客户端扫描二维码连接您的 WhatsApp 账户
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center justify-center p-4">
-          {qr ? <QRCode value={qr} size={256} /> : <p>Generating QR code...</p>}
+
+        <div className="space-y-4">
+          {/* QR Code Display */}
+          <div className="flex items-center justify-center p-4 bg-white rounded-lg border">
+            {status === 'generating' && (
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                <p className="text-sm text-muted-foreground">正在生成二维码...</p>
+              </div>
+            )}
+
+            {status === 'ready' && qr && (
+              <div className="text-center">
+                <QRCode value={qr} size={220} level="M" />
+                <div className="mt-2 text-sm text-muted-foreground">
+                  有效时间: {formatTime(countdown)}
+                </div>
+              </div>
+            )}
+
+            {status === 'scanning' && (
+              <div className="text-center">
+                <div className="animate-pulse">
+                  <QRCode value={qr || ''} size={220} level="M" />
+                </div>
+                <p className="text-sm text-green-600 mt-2">正在扫描...</p>
+              </div>
+            )}
+
+            {status === 'success' && (
+              <div className="text-center">
+                <div className="rounded-full bg-green-100 p-4 mb-2">
+                  <svg className="w-8 h-8 text-green-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-green-600 font-medium">连接成功！</p>
+                <p className="text-sm text-muted-foreground">正在初始化 WhatsApp 客户端...</p>
+              </div>
+            )}
+
+            {status === 'expired' && (
+              <div className="text-center">
+                <div className="rounded-full bg-red-100 p-4 mb-2">
+                  <svg className="w-8 h-8 text-red-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <p className="text-red-600 font-medium">二维码已过期</p>
+                <Button onClick={handleRefreshQR} className="mt-2" size="sm">
+                  重新生成
+                </Button>
+              </div>
+            )}
+
+            {status === 'error' && (
+              <div className="text-center">
+                <div className="rounded-full bg-red-100 p-4 mb-2">
+                  <svg className="w-8 h-8 text-red-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <p className="text-red-600 font-medium">连接失败</p>
+                <Button onClick={handleRefreshQR} className="mt-2" size="sm">
+                  重试
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Instructions */}
+          {(status === 'ready' || status === 'scanning') && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">连接步骤：</h4>
+              <ol className="text-sm text-muted-foreground space-y-1">
+                <li>1. 在手机上打开 WhatsApp</li>
+                <li>2. 点击右上角的三个点，选择"已连接的设备"</li>
+                <li>3. 点击"连接设备"</li>
+                <li>4. 扫描上方二维码</li>
+              </ol>
+            </div>
+          )}
+
+          {/* Bailey Info */}
+          {status === 'ready' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-blue-900">使用 Bailey 库</p>
+                  <p className="text-xs text-blue-700">这是一个开源的 WhatsApp Web API 库，支持完整的消息功能</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={status === 'success'}
+          >
+            取消
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function WeChatQRDialog({
+  qr,
+  open,
+  onOpenChange,
+  onConnectionSuccess,
+}: {
+  qr: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConnectionSuccess?: () => void;
+}) {
+  const [status, setStatus] = useState<'generating' | 'ready' | 'scanned' | 'success' | 'expired' | 'error'>('generating');
+  const [countdown, setCountdown] = useState(120); // WeChat QR lasts 2 minutes
+  const [qrId, setQrId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setStatus('generating');
+      setCountdown(120);
+      setQrId(null);
+      return;
+    }
+
+    if (qr) {
+      setStatus('ready');
+      // Start checking for scan status
+      const pollInterval = setInterval(async () => {
+        if (qrId) {
+          try {
+            const response = await fetch('/api/wechat/qr', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ qrId, action: 'check-status' })
+            });
+            const data = await response.json();
+            
+            if (data.status === 'confirmed') {
+              setStatus('success');
+              clearInterval(pollInterval);
+              setTimeout(() => {
+                onConnectionSuccess?.();
+                onOpenChange(false);
+              }, 2000);
+            } else if (data.status === 'scanned') {
+              setStatus('scanned');
+            }
+          } catch (error) {
+            console.error('Failed to check WeChat QR status:', error);
+          }
+        }
+      }, 2000);
+
+      return () => clearInterval(pollInterval);
+    }
+  }, [qr, qrId, open, onConnectionSuccess, onOpenChange]);
+
+  useEffect(() => {
+    if (status === 'ready' && countdown > 0) {
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            setStatus('expired');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [status, countdown]);
+
+  const handleRefreshQR = async () => {
+    setStatus('generating');
+    setCountdown(120);
+    try {
+      const response = await fetch('/api/wechat/qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refresh' })
+      });
+      const data = await response.json();
+      if (data.success && data.qr) {
+        setQrId(data.qrId);
+        // The parent component should update the QR code
+        window.location.reload(); // Simple approach
+      }
+    } catch (error) {
+      console.error('Failed to refresh WeChat QR:', error);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>连接微信</DialogTitle>
+          <DialogDescription>
+            扫描二维码连接您的微信公众号或个人号
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          {/* QR Code Display */}
+          <div className="flex items-center justify-center p-4 bg-white rounded-lg border">
+            {status === 'generating' && (
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-2"></div>
+                <p className="text-sm text-muted-foreground">正在生成微信二维码...</p>
+              </div>
+            )}
+            
+            {status === 'ready' && qr && (
+              <div className="text-center">
+                <QRCode value={qr} size={220} level="M" />
+                <div className="mt-2 text-sm text-muted-foreground">
+                  有效时间: {formatTime(countdown)}
+                </div>
+              </div>
+            )}
+            
+            {status === 'scanned' && (
+              <div className="text-center">
+                <div className="animate-pulse">
+                  <QRCode value={qr || ''} size={220} level="M" />
+                </div>
+                <p className="text-sm text-yellow-600 mt-2">已扫描，请在手机上确认</p>
+              </div>
+            )}
+            
+            {status === 'success' && (
+              <div className="text-center">
+                <div className="rounded-full bg-green-100 p-4 mb-2">
+                  <svg className="w-8 h-8 text-green-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-green-600 font-medium">微信连接成功！</p>
+                <p className="text-sm text-muted-foreground">正在初始化机器人...</p>
+              </div>
+            )}
+            
+            {status === 'expired' && (
+              <div className="text-center">
+                <div className="rounded-full bg-red-100 p-4 mb-2">
+                  <svg className="w-8 h-8 text-red-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <p className="text-red-600 font-medium">二维码已过期</p>
+                <Button onClick={handleRefreshQR} className="mt-2" size="sm">
+                  重新生成
+                </Button>
+              </div>
+            )}
+            
+            {status === 'error' && (
+              <div className="text-center">
+                <div className="rounded-full bg-red-100 p-4 mb-2">
+                  <svg className="w-8 h-8 text-red-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <p className="text-red-600 font-medium">连接失败</p>
+                <Button onClick={handleRefreshQR} className="mt-2" size="sm">
+                  重试
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Instructions */}
+          {(status === 'ready' || status === 'scanned') && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">连接步骤：</h4>
+              <ol className="text-sm text-muted-foreground space-y-1">
+                <li>1. 打开微信 APP</li>
+                <li>2. 点击右上角"+"号</li>
+                <li>3. 选择"扫一扫"</li>
+                <li>4. 扫描上方二维码</li>
+                <li>5. 在手机上确认登录</li>
+              </ol>
+            </div>
+          )}
+
+          {/* WeChat Info */}
+          {status === 'ready' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-green-900">微信集成</p>
+                  <p className="text-xs text-green-700">支持公众号、个人号多种连接方式，完整消息收发功能</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            disabled={status === 'success'}
+          >
+            取消
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -170,8 +571,13 @@ export default function ChannelsPage() {
   const { toast } = useToast();
   const [connecting, setConnecting] = useState<Record<string, boolean>>({});
   const router = useRouter();
+  // WhatsApp QR states
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
+  
+  // WeChat QR states
+  const [wechatQR, setWechatQR] = useState<string | null>(null);
+  const [isWechatQRDialogOpen, setIsWechatQRDialogOpen] = useState(false);
   const isMobile = useMobile();
 
   useEffect(() => {
@@ -194,23 +600,23 @@ export default function ChannelsPage() {
       setIsQrDialogOpen(true);
       setQrCode(null);
       try {
+        // Get QR code from Bailey-enhanced API
         const response = await fetch("/api/whatsapp/qr");
         const data = await response.json();
-        if (response.ok) {
+
+        if (response.ok && data.success) {
           setQrCode(data.qr);
-          // The connection status will be updated via a separate mechanism later (e.g. webhook or polling)
-          // For now, we simulate a successful connection after a delay
-          setTimeout(async () => {
-            const updatedChannel = await updateChannel(channelId, {
-              status: "online",
-              lastActivity: "刚刚",
-            });
-            setChannels((prev) =>
-              prev.map((ch) => (ch.id === channelId ? updatedChannel : ch))
-            );
-            toast({ description: `${type} 已连接。` });
-            setIsQrDialogOpen(false);
-          }, 20000); // Assume user scans within 20 seconds
+
+          // Store QR metadata for status checking
+          if (data.qrId) {
+            // The enhanced QR dialog will handle the connection polling
+            console.log(`WhatsApp QR generated: ${data.qrId}`);
+          }
+
+          toast({
+            description: `WhatsApp 二维码已生成，请在 ${data.expiresIn || 60} 秒内扫描`,
+          });
+
         } else {
           throw new Error(data.message || "获取二维码失败");
         }
@@ -218,43 +624,142 @@ export default function ChannelsPage() {
         console.error("获取 WhatsApp 二维码失败:", error);
         toast({
           title: "错误",
-          description: `获取二维码失败。`,
+          description: `获取二维码失败: ${error instanceof Error ? error.message : '未知错误'}`,
           variant: "destructive",
         });
         setIsQrDialogOpen(false);
+        setConnecting((prev) => ({ ...prev, [channelId]: false }));
       }
     } else if (type === "WeChat") {
+      setIsWechatQRDialogOpen(true);
+      setWechatQR(null);
       try {
-        const response = await fetch("/api/wechat/connect", { method: "POST" });
-        if (response.ok) {
-          const updatedChannel = await updateChannel(channelId, {
-            status: "online",
-            lastActivity: "刚刚",
+        // Get QR code from WeChat API
+        const response = await fetch("/api/wechat/qr");
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setWechatQR(data.qr);
+
+          // Store QR metadata for status checking
+          if (data.qrId) {
+            console.log(`WeChat QR generated: ${data.qrId}`);
+          }
+
+          toast({
+            description: `微信二维码已生成，请在 ${data.expiresIn || 120} 秒内扫描`,
           });
-          setChannels((prev) =>
-            prev.map((ch) => (ch.id === channelId ? updatedChannel : ch))
-          );
-          toast({ description: `${type} 已连接。` });
+
         } else {
-          throw new Error("连接失败");
+          throw new Error(data.message || "获取二维码失败");
         }
       } catch (error) {
-        console.error(`连接 ${type} 失败:`, error);
-        await updateChannel(channelId, { status: "error" });
-        setChannels((prev) =>
-          prev.map((ch) =>
-            ch.id === channelId ? { ...ch, status: "error" } : ch
-          )
-        );
+        console.error("获取微信二维码失败:", error);
         toast({
           title: "错误",
-          description: `${type} 连接失败。`,
+          description: `获取二维码失败: ${error instanceof Error ? error.message : '未知错误'}`,
           variant: "destructive",
         });
+        setIsWechatQRDialogOpen(false);
+        setConnecting((prev) => ({ ...prev, [channelId]: false }));
       }
     }
 
-    setConnecting((prev) => ({ ...prev, [channelId]: false }));
+    // Don't set connecting to false here for WhatsApp and WeChat, let the dialog handle it
+    if (type !== "WhatsApp" && type !== "WeChat") {
+      setConnecting((prev) => ({ ...prev, [channelId]: false }));
+    }
+  };
+
+  const handleWhatsAppConnectionSuccess = async () => {
+    // This will be called when QR scan is successful
+    const whatsappChannel = channels.find(ch => ch.type === "WhatsApp" && connecting[ch.id]);
+
+    if (whatsappChannel) {
+      try {
+        // Confirm connection with the server
+        const response = await fetch("/api/whatsapp/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "confirm-connection",
+            channelId: whatsappChannel.id
+          })
+        });
+
+        if (response.ok) {
+          const updatedChannel = await updateChannel(whatsappChannel.id, {
+            status: "online",
+            lastActivity: "刚刚",
+          });
+
+          setChannels((prev) =>
+            prev.map((ch) => (ch.id === whatsappChannel.id ? updatedChannel : ch))
+          );
+
+          toast({
+            description: "WhatsApp 已成功连接！Bailey 客户端已就绪。",
+            duration: 5000
+          });
+        }
+      } catch (error) {
+        console.error("确认 WhatsApp 连接失败:", error);
+        toast({
+          title: "连接确认失败",
+          description: "扫描成功，但服务器确认失败，请重试。",
+          variant: "destructive",
+        });
+      } finally {
+        setConnecting((prev) => ({ ...prev, [whatsappChannel.id]: false }));
+      }
+    }
+  };
+
+  const handleWeChatConnectionSuccess = async () => {
+    // Find the WeChat channel that's connecting
+    const wechatChannels = channels.filter(ch => ch.type === "WeChat");
+    const connectingWechatChannels = wechatChannels.filter(ch => connecting[ch.id]);
+    
+    if (connectingWechatChannels.length > 0) {
+      const wechatChannel = connectingWechatChannels[0];
+      
+      try {
+        // Confirm connection with backend
+        const response = await fetch("/api/wechat/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "confirm-connection",
+            channelId: wechatChannel.id
+          })
+        });
+
+        if (response.ok) {
+          const updatedChannel = await updateChannel(wechatChannel.id, {
+            status: "online",
+            lastActivity: "刚刚",
+          });
+
+          setChannels((prev) =>
+            prev.map((ch) => (ch.id === wechatChannel.id ? updatedChannel : ch))
+          );
+
+          toast({
+            description: "微信已成功连接！机器人已就绪。",
+            duration: 5000
+          });
+        }
+      } catch (error) {
+        console.error("确认微信连接失败:", error);
+        toast({
+          title: "连接确认失败",
+          description: "扫描成功，但服务器确认失败，请重试。",
+          variant: "destructive",
+        });
+      } finally {
+        setConnecting((prev) => ({ ...prev, [wechatChannel.id]: false }));
+      }
+    }
   };
 
   const handleAddChannel = (newChannel: Channel) => {
@@ -332,11 +837,11 @@ export default function ChannelsPage() {
                           variant="outline"
                           className={cn(
                             channel.status === "online" &&
-                              "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400 border-green-300 dark:border-green-800",
+                            "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400 border-green-300 dark:border-green-800",
                             channel.status === "offline" &&
-                              "bg-gray-100 text-gray-800 dark:bg-gray-800/40 dark:text-gray-400 border-gray-300 dark:border-gray-700",
+                            "bg-gray-100 text-gray-800 dark:bg-gray-800/40 dark:text-gray-400 border-gray-300 dark:border-gray-700",
                             channel.status === "error" &&
-                              "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border-red-300 dark:border-red-800"
+                            "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border-red-300 dark:border-red-800"
                           )}
                         >
                           <span
@@ -431,6 +936,7 @@ export default function ChannelsPage() {
         qr={qrCode}
         open={isQrDialogOpen}
         onOpenChange={setIsQrDialogOpen}
+        onConnectionSuccess={handleWhatsAppConnectionSuccess}
       />
     </>
   );
