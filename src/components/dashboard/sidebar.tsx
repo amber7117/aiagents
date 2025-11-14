@@ -6,15 +6,17 @@ import {
   Image,
   Inbox,
   LifeBuoy,
+  LogOut,
   Megaphone,
   MessageSquare,
   PieChart,
   Settings,
+  User as UserIcon,
   Users,
   Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,10 +27,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import type { NavItem, User } from '@/lib/types';
-import { getLoggedInUser } from '@/lib/api';
-import React, { useState, useEffect } from 'react';
+import type { NavItem } from '@/lib/types';
+import { useAuth } from '@/contexts/AuthContext';
+import React from 'react';
 
 const navItems: NavItem[] = [
   { href: '/inbox', label: 'Inbox', icon: Inbox },
@@ -43,46 +46,55 @@ const navItems: NavItem[] = [
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const [loggedInUser, setLoggedInUser] = useState<User | null>(null);
+  const router = useRouter();
+  const { user, userProfile, loading, signOut } = useAuth();
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const user = await getLoggedInUser();
-      setLoggedInUser(user);
-    };
-    fetchUser();
-  }, []);
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
-  if (!loggedInUser) {
+  // Show skeleton while loading
+  if (loading) {
     return (
-      <div className="flex h-full flex-col p-4">
-        <div className="h-16 flex items-center border-b px-2">
+      <aside className="flex h-screen w-full flex-col border-r bg-card">
+        <div className="flex h-16 items-center border-b px-6">
+          <div className="flex items-center gap-2">
             <Bot className="h-6 w-6 text-primary" />
+            <span className="font-semibold">OmniChat</span>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto py-4">
-            <div className="grid items-start gap-1 text-sm font-medium">
-                {/* Skeleton for nav items */}
-                {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground">
-                        <div className="h-4 w-4 bg-muted rounded-full animate-pulse"></div>
-                        <div className="h-4 w-24 bg-muted rounded animate-pulse"></div>
-                    </div>
-                ))}
-            </div>
+        <div className="flex-1 overflow-y-auto">
+          <nav className="grid items-start gap-1 px-4 py-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </nav>
         </div>
         <div className="mt-auto border-t p-4">
-            <div className="flex items-center justify-between p-2">
-                <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
-                    <div className="text-left">
-                        <div className="h-4 w-16 bg-muted rounded animate-pulse mb-1"></div>
-                        <div className="h-3 w-24 bg-muted rounded animate-pulse"></div>
-                    </div>
-                </div>
+          <div className="flex items-center gap-3 p-2">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-3 w-24" />
             </div>
+          </div>
         </div>
-    </div>
+      </aside>
     );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user || !userProfile) {
+    router.push('/login');
+    return null;
   }
 
   return (
@@ -90,9 +102,10 @@ export default function DashboardSidebar() {
       <div className="flex h-16 items-center border-b px-6">
         <Link href="/inbox" className="flex items-center gap-2 font-semibold">
           <Bot className="h-6 w-6 text-primary" />
-          <span className="">OmniChat</span>
+          <span>OmniChat</span>
         </Link>
       </div>
+
       <div className="flex-1 overflow-y-auto">
         <nav className="grid items-start gap-1 px-4 py-4 text-sm font-medium">
           {navItems.map((item) => (
@@ -112,20 +125,22 @@ export default function DashboardSidebar() {
           ))}
         </nav>
       </div>
+
       <div className="mt-auto border-t p-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex h-auto w-full items-center justify-between p-2">
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={loggedInUser.avatar} alt={loggedInUser.name} />
+                  <AvatarImage src={userProfile.avatar} alt={userProfile.name} />
                   <AvatarFallback>
-                    {loggedInUser.name.charAt(0)}
+                    {userProfile.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="text-left">
-                  <p className="text-sm font-medium">{loggedInUser.name}</p>
-                  <p className="text-xs text-muted-foreground">{loggedInUser.email}</p>
+                  <p className="text-sm font-medium">{userProfile.name}</p>
+                  <p className="text-xs text-muted-foreground">{userProfile.email}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{userProfile.role}</p>
                 </div>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -134,13 +149,22 @@ export default function DashboardSidebar() {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{loggedInUser.name}</p>
+                <p className="text-sm font-medium leading-none">{userProfile.name}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {loggedInUser.email}
+                  {userProfile.email}
+                </p>
+                <p className="text-xs leading-none text-muted-foreground capitalize">
+                  {userProfile.role}
                 </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <UserIcon className="mr-2 h-4 w-4" />
+                <span>Profile Settings</span>
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem>
               <Users className="mr-2 h-4 w-4" />
               <span>Team</span>
@@ -150,7 +174,8 @@ export default function DashboardSidebar() {
               <span>Support</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

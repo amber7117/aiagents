@@ -19,6 +19,8 @@ export type Channel = {
   lastActivity: string;
   agentId?: string;
   autoReply: boolean;
+  phoneNumber?: string;
+  description?: string;
 };
 
 export type Message = {

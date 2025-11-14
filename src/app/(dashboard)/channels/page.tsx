@@ -1,4 +1,3 @@
-
 "use client";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import React, { useState, useEffect } from "react";
@@ -29,10 +28,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getChannels, getAIAgents, updateChannel, addChannel } from "@/lib/api";
+import { getChannels, getAIAgents, updateChannel, addChannel, deleteChannel } from "@/lib/api";
 import type { Channel, AIAgent, ChannelType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { channelIcons } from "@/lib/data";
+import { clientFirestoreService } from "@/lib/client-firestore-service";
 
 import {
   Dialog,
@@ -43,6 +43,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -56,6 +67,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useMobile } from "@/hooks/use-mobile";
 import { MobileChannelsView } from "./mobile-view";
+import { TelegramDialog } from "./telegram-dialog";
 
 function AddChannelDialog({
   onAddChannel,
@@ -140,11 +152,13 @@ function AddChannelDialog({
 
 function WhatsAppQRDialog({
   qr,
+  qrId,
   open,
   onOpenChange,
   onConnectionSuccess,
 }: {
   qr: string | null;
+  qrId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConnectionSuccess?: () => void;
@@ -152,13 +166,11 @@ function WhatsAppQRDialog({
   const [status, setStatus] = useState<'generating' | 'ready' | 'scanning' | 'success' | 'expired' | 'error'>('generating');
   const [countdown, setCountdown] = useState(60);
   const [instructions, setInstructions] = useState<string[]>([]);
-  const [qrId, setQrId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
       setStatus('generating');
       setCountdown(60);
-      setQrId(null);
       return;
     }
 
@@ -175,7 +187,7 @@ function WhatsAppQRDialog({
             });
             const data = await response.json();
 
-            if (data.status === 'scanned') {
+            if (data.status === 'confirmed') {
               setStatus('success');
               clearInterval(pollInterval);
               setTimeout(() => {
@@ -379,7 +391,7 @@ function WeChatQRDialog({
               body: JSON.stringify({ qrId, action: 'check-status' })
             });
             const data = await response.json();
-            
+
             if (data.status === 'confirmed') {
               setStatus('success');
               clearInterval(pollInterval);
@@ -451,7 +463,7 @@ function WeChatQRDialog({
             扫描二维码连接您的微信公众号或个人号
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           {/* QR Code Display */}
           <div className="flex items-center justify-center p-4 bg-white rounded-lg border">
@@ -461,7 +473,7 @@ function WeChatQRDialog({
                 <p className="text-sm text-muted-foreground">正在生成微信二维码...</p>
               </div>
             )}
-            
+
             {status === 'ready' && qr && (
               <div className="text-center">
                 <QRCode value={qr} size={220} level="M" />
@@ -470,7 +482,7 @@ function WeChatQRDialog({
                 </div>
               </div>
             )}
-            
+
             {status === 'scanned' && (
               <div className="text-center">
                 <div className="animate-pulse">
@@ -479,7 +491,7 @@ function WeChatQRDialog({
                 <p className="text-sm text-yellow-600 mt-2">已扫描，请在手机上确认</p>
               </div>
             )}
-            
+
             {status === 'success' && (
               <div className="text-center">
                 <div className="rounded-full bg-green-100 p-4 mb-2">
@@ -491,7 +503,7 @@ function WeChatQRDialog({
                 <p className="text-sm text-muted-foreground">正在初始化机器人...</p>
               </div>
             )}
-            
+
             {status === 'expired' && (
               <div className="text-center">
                 <div className="rounded-full bg-red-100 p-4 mb-2">
@@ -505,7 +517,7 @@ function WeChatQRDialog({
                 </Button>
               </div>
             )}
-            
+
             {status === 'error' && (
               <div className="text-center">
                 <div className="rounded-full bg-red-100 p-4 mb-2">
@@ -552,8 +564,8 @@ function WeChatQRDialog({
         </div>
 
         <DialogFooter>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={status === 'success'}
           >
@@ -573,11 +585,17 @@ export default function ChannelsPage() {
   const router = useRouter();
   // WhatsApp QR states
   const [qrCode, setQrCode] = useState<string | null>(null);
+  const [qrId, setQrId] = useState<string | null>(null);
   const [isQrDialogOpen, setIsQrDialogOpen] = useState(false);
-  
+
   // WeChat QR states
   const [wechatQR, setWechatQR] = useState<string | null>(null);
   const [isWechatQRDialogOpen, setIsWechatQRDialogOpen] = useState(false);
+
+  // Telegram states
+  const [isTelegramDialogOpen, setIsTelegramDialogOpen] = useState(false);
+  const [connectingTelegramChannel, setConnectingTelegramChannel] = useState<string | null>(null);
+
   const isMobile = useMobile();
 
   useEffect(() => {
@@ -586,7 +604,28 @@ export default function ChannelsPage() {
         getChannels(),
         getAIAgents(),
       ]);
-      setChannels(channelsData);
+
+      // Check for duplicate IDs in fetched data
+      const channelIds = channelsData.map(ch => ch.id);
+      const uniqueChannelIds = new Set(channelIds);
+
+      if (channelIds.length !== uniqueChannelIds.size) {
+        console.warn('Duplicate channel IDs detected in fetched data:', channelIds);
+        // Filter out duplicates, keeping the first occurrence
+        const seenIds = new Set();
+        const uniqueChannels = channelsData.filter(ch => {
+          if (seenIds.has(ch.id)) {
+            console.warn(`Removing duplicate channel: ${ch.id} - ${ch.name}`);
+            return false;
+          }
+          seenIds.add(ch.id);
+          return true;
+        });
+        setChannels(uniqueChannels);
+      } else {
+        setChannels(channelsData);
+      }
+
       setAIAgents(agentsData);
     };
     fetchData();
@@ -599,6 +638,7 @@ export default function ChannelsPage() {
     if (type === "WhatsApp") {
       setIsQrDialogOpen(true);
       setQrCode(null);
+      setQrId(null);
       try {
         // Get QR code from Bailey-enhanced API
         const response = await fetch("/api/whatsapp/qr");
@@ -606,12 +646,7 @@ export default function ChannelsPage() {
 
         if (response.ok && data.success) {
           setQrCode(data.qr);
-
-          // Store QR metadata for status checking
-          if (data.qrId) {
-            // The enhanced QR dialog will handle the connection polling
-            console.log(`WhatsApp QR generated: ${data.qrId}`);
-          }
+          setQrId(data.qrId);
 
           toast({
             description: `WhatsApp 二维码已生成，请在 ${data.expiresIn || 60} 秒内扫描`,
@@ -663,6 +698,10 @@ export default function ChannelsPage() {
         setIsWechatQRDialogOpen(false);
         setConnecting((prev) => ({ ...prev, [channelId]: false }));
       }
+    } else if (type === "Telegram") {
+      // Open Telegram dialog for API credentials and phone number
+      setIsTelegramDialogOpen(true);
+      setConnectingTelegramChannel(channelId);
     }
 
     // Don't set connecting to false here for WhatsApp and WeChat, let the dialog handle it
@@ -677,31 +716,68 @@ export default function ChannelsPage() {
 
     if (whatsappChannel) {
       try {
-        // Confirm connection with the server
-        const response = await fetch("/api/whatsapp/connect", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "confirm-connection",
-            channelId: whatsappChannel.id
-          })
-        });
-
-        if (response.ok) {
-          const updatedChannel = await updateChannel(whatsappChannel.id, {
-            status: "online",
-            lastActivity: "刚刚",
+        // Get connection info first to extract phone number
+        let phoneNumber = null;
+        if (qrId) {
+          const response = await fetch("/api/whatsapp/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "confirm-connection",
+              channelId: whatsappChannel.id,
+              qrId: qrId
+            })
           });
 
-          setChannels((prev) =>
-            prev.map((ch) => (ch.id === whatsappChannel.id ? updatedChannel : ch))
-          );
+          if (response.ok) {
+            const responseData = await response.json();
+            phoneNumber = responseData.data?.phoneNumber;
+            await initializeChannelAI(whatsappChannel.id, responseData.data || {});
+          }
+        }
 
+        // Update channel status with phone number
+        const updatedChannel = await updateChannel(whatsappChannel.id, {
+          status: "online",
+          lastActivity: "刚刚",
+          ...(phoneNumber && { phoneNumber })
+        });
+
+        setChannels((prev) =>
+          prev.map((ch) => (ch.id === whatsappChannel.id ? updatedChannel : ch))
+        );
+
+        // Load chat history after connection
+        try {
+          const historyResponse = await fetch(`/api/whatsapp/history`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              channelId: whatsappChannel.id,
+              sessionId: qrId,
+              limit: 50
+            })
+          });
+
+          if (historyResponse.ok) {
+            const historyData = await historyResponse.json();
+            console.log(`Loaded WhatsApp chat history: ${historyData.data.totalConversations} conversations, ${historyData.data.totalMessages} messages`);
+
+            toast({
+              description: `WhatsApp 已成功连接！已加载 ${historyData.data.totalMessages} 条历史消息，${historyData.data.totalConversations} 个对话。`,
+              duration: 5000
+            });
+          } else {
+            throw new Error('Failed to load chat history');
+          }
+        } catch (historyError) {
+          console.error('Failed to load WhatsApp chat history:', historyError);
           toast({
-            description: "WhatsApp 已成功连接！Bailey 客户端已就绪。",
+            description: "WhatsApp 已成功连接！Bailey 客户端已就绪，AI智能体已启用。",
             duration: 5000
           });
         }
+
       } catch (error) {
         console.error("确认 WhatsApp 连接失败:", error);
         toast({
@@ -719,10 +795,10 @@ export default function ChannelsPage() {
     // Find the WeChat channel that's connecting
     const wechatChannels = channels.filter(ch => ch.type === "WeChat");
     const connectingWechatChannels = wechatChannels.filter(ch => connecting[ch.id]);
-    
+
     if (connectingWechatChannels.length > 0) {
       const wechatChannel = connectingWechatChannels[0];
-      
+
       try {
         // Confirm connection with backend
         const response = await fetch("/api/wechat/connect", {
@@ -735,19 +811,43 @@ export default function ChannelsPage() {
         });
 
         if (response.ok) {
+          const responseData = await response.json();
+          const phoneNumber = responseData.data?.phoneNumber;
+
           const updatedChannel = await updateChannel(wechatChannel.id, {
             status: "online",
             lastActivity: "刚刚",
+            ...(phoneNumber && { phoneNumber })
           });
 
           setChannels((prev) =>
             prev.map((ch) => (ch.id === wechatChannel.id ? updatedChannel : ch))
           );
 
-          toast({
-            description: "微信已成功连接！机器人已就绪。",
-            duration: 5000
-          });
+          // Initialize AI agent for this channel
+          await initializeChannelAI(wechatChannel.id, responseData.data);
+
+          // Load chat history after connection
+          try {
+            const historyResponse = await fetch(`/api/chat/history?channelId=${wechatChannel.id}&limit=50`);
+            if (historyResponse.ok) {
+              const historyData = await historyResponse.json();
+              console.log(`Loaded WeChat chat history: ${historyData.data.totalConversations} conversations, ${historyData.data.totalMessages} messages`);
+
+              toast({
+                description: `微信已成功连接！已加载 ${historyData.data.totalConversations} 个对话历史记录。`,
+                duration: 5000
+              });
+            } else {
+              throw new Error('Failed to load chat history');
+            }
+          } catch (historyError) {
+            console.error('Failed to load WeChat chat history:', historyError);
+            toast({
+              description: "微信已成功连接！机器人已就绪，AI智能体已启用。",
+              duration: 5000
+            });
+          }
         }
       } catch (error) {
         console.error("确认微信连接失败:", error);
@@ -762,8 +862,63 @@ export default function ChannelsPage() {
     }
   };
 
+  // Initialize AI agent for newly connected channel
+  const initializeChannelAI = async (channelId: string, connectionData: any) => {
+    try {
+      console.log(`Initializing AI for channel: ${channelId}`);
+
+      // Assign a default AI agent (customer-support) to the new channel
+      const defaultAgentId = "customer-support";
+
+      // Update channel to enable auto-reply with default agent
+      const updatedChannel = await updateChannel(channelId, {
+        agentId: defaultAgentId,
+        autoReply: true, // Enable auto-reply by default
+      });
+
+      // Update local state
+      setChannels((prev) =>
+        prev.map((ch) =>
+          ch.id === channelId
+            ? { ...ch, agentId: defaultAgentId, autoReply: true }
+            : ch
+        )
+      );
+
+      // Initialize the OmniChat service to ensure AI agents are ready
+      const initResponse = await fetch('/api/omnichat/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channelId,
+          connectionData,
+          agentId: defaultAgentId
+        })
+      });
+
+      if (initResponse.ok) {
+        console.log(`AI initialized successfully for channel: ${channelId}`);
+      } else {
+        console.warn(`AI initialization warning for channel: ${channelId}`);
+      }
+
+    } catch (error) {
+      console.error(`Failed to initialize AI for channel ${channelId}:`, error);
+      // Don't fail the connection process for AI initialization errors
+    }
+  };
+
   const handleAddChannel = (newChannel: Channel) => {
-    setChannels((prev) => [...prev, newChannel]);
+    // Check if channel with same ID already exists to prevent duplicates
+    setChannels((prev) => {
+      const exists = prev.some(ch => ch.id === newChannel.id);
+      if (exists) {
+        console.warn(`Channel with ID ${newChannel.id} already exists, skipping duplicate`);
+        return prev;
+      }
+      return [...prev, newChannel];
+    });
+
     if (newChannel.type === "WhatsApp" || newChannel.type === "WeChat") {
       handleConnect(newChannel.id, newChannel.type);
     }
@@ -771,11 +926,70 @@ export default function ChannelsPage() {
 
   const handleAgentChange = async (channelId: string, agentId: string) => {
     const newAgentId = agentId === "none" ? undefined : agentId;
-    await updateChannel(channelId, { agentId: newAgentId });
-    setChannels((prev) =>
-      prev.map((ch) => (ch.id === channelId ? { ...ch, agentId: newAgentId } : ch))
-    );
-    toast({ description: "渠道代理已更新。" });
+
+    // When binding an agent to a channel, automatically enable auto-reply
+    const autoReply = newAgentId ? true : false;
+
+    try {
+      // Update channel with both agent assignment and auto-reply setting
+      const updatedChannel = await updateChannel(channelId, {
+        agentId: newAgentId,
+        autoReply: autoReply
+      });
+
+      setChannels((prev) =>
+        prev.map((ch) => (ch.id === channelId ? updatedChannel : ch))
+      );
+
+      // 保存更新到 Firestore
+      try {
+        const firestoreChannel = {
+          id: updatedChannel.id,
+          name: updatedChannel.name,
+          type: updatedChannel.type,
+          status: updatedChannel.status,
+          lastActivity: updatedChannel.lastActivity,
+          agentId: updatedChannel.agentId,
+          autoReply: updatedChannel.autoReply,
+          phoneNumber: updatedChannel.phoneNumber,
+          connectedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        await clientFirestoreService.saveChannel(firestoreChannel);
+        console.log(`Channel agent binding saved to Firestore: ${channelId}`);
+      } catch (firestoreError) {
+        console.error('Failed to save channel update to Firestore:', firestoreError);
+        // 不影响用户体验，只记录错误
+      }
+
+      if (newAgentId) {
+        // Get agent info to show in toast
+        const agent = aiAgents.find(a => a.id === newAgentId);
+        const agentName = agent ? agent.name : '智能体';
+
+        toast({
+          description: `已将 "${agentName}" 绑定到该渠道并启用 AI 自动回复。该渠道收到的所有消息将由 AI 智能体自动回复。`,
+          duration: 5000
+        });
+
+        // Log the binding for debugging
+        console.log(`AI Agent "${agentName}" (${newAgentId}) bound to channel ${channelId} with auto-reply enabled`);
+      } else {
+        toast({
+          description: "已取消智能体绑定并禁用自动回复。"
+        });
+        console.log(`AI Agent unbound from channel ${channelId} and auto-reply disabled`);
+      }
+    } catch (error) {
+      console.error('Failed to update channel agent:', error);
+      toast({
+        title: "错误",
+        description: "更新渠道智能体失败，请重试。",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAutoReplyToggle = async (channelId: string, enabled: boolean) => {
@@ -784,6 +998,66 @@ export default function ChannelsPage() {
       prev.map((ch) => (ch.id === channelId ? { ...ch, autoReply: enabled } : ch))
     );
     toast({ description: `自动回复已${enabled ? "启用" : "禁用"}。` });
+  };
+
+  const handleDeleteChannel = async (channelId: string) => {
+    try {
+      const result = await deleteChannel(channelId);
+      if (result.success) {
+        setChannels((prev) => prev.filter((ch) => ch.id !== channelId));
+        toast({
+          description: "渠道已成功删除。"
+        });
+      } else {
+        toast({
+          title: "错误",
+          description: "删除渠道失败。",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("删除渠道失败:", error);
+      toast({
+        title: "错误",
+        description: "删除渠道时发生错误。",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTelegramConnectionSuccess = async () => {
+    if (connectingTelegramChannel) {
+      try {
+        // Update channel status to online
+        const updatedChannel = await updateChannel(connectingTelegramChannel, {
+          status: "online",
+          lastActivity: "刚刚",
+        });
+
+        setChannels((prev) =>
+          prev.map((ch) => (ch.id === connectingTelegramChannel ? updatedChannel : ch))
+        );
+
+        // Initialize AI agent for this channel
+        await initializeChannelAI(connectingTelegramChannel, {});
+
+        toast({
+          description: "Telegram 已成功连接！GramJS 客户端已就绪，AI智能体已启用。",
+          duration: 5000
+        });
+
+      } catch (error) {
+        console.error("确认 Telegram 连接失败:", error);
+        toast({
+          title: "连接确认失败",
+          description: "连接成功，但服务器确认失败，请重试。",
+          variant: "destructive",
+        });
+      } finally {
+        setConnecting((prev) => ({ ...prev, [connectingTelegramChannel]: false }));
+        setConnectingTelegramChannel(null);
+      }
+    }
   };
 
   return (
@@ -819,10 +1093,10 @@ export default function ChannelsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {channels.map((channel) => {
+                {channels.map((channel, index) => {
                   const Icon = channelIcons[channel.type];
                   return (
-                    <TableRow key={channel.id}>
+                    <TableRow key={`channel-${channel.id}-${index}`}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-3">
                           {Icon && (
@@ -833,27 +1107,34 @@ export default function ChannelsPage() {
                       </TableCell>
                       <TableCell>{channel.type}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            channel.status === "online" &&
-                            "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400 border-green-300 dark:border-green-800",
-                            channel.status === "offline" &&
-                            "bg-gray-100 text-gray-800 dark:bg-gray-800/40 dark:text-gray-400 border-gray-300 dark:border-gray-700",
-                            channel.status === "error" &&
-                            "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border-red-300 dark:border-red-800"
+                        <div className="space-y-1">
+                          {channel.phoneNumber && (
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {channel.phoneNumber}
+                            </div>
                           )}
-                        >
-                          <span
+                          <Badge
+                            variant="outline"
                             className={cn(
-                              "mr-1.5 h-2 w-2 rounded-full",
-                              channel.status === "online" && "bg-green-600",
-                              channel.status === "offline" && "bg-gray-500",
-                              channel.status === "error" && "bg-red-600"
+                              channel.status === "online" &&
+                              "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400 border-green-300 dark:border-green-800",
+                              channel.status === "offline" &&
+                              "bg-gray-100 text-gray-800 dark:bg-gray-800/40 dark:text-gray-400 border-gray-300 dark:border-gray-700",
+                              channel.status === "error" &&
+                              "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-400 border-red-300 dark:border-red-800"
                             )}
-                          />
-                          {channel.status}
-                        </Badge>
+                          >
+                            <span
+                              className={cn(
+                                "mr-1.5 h-2 w-2 rounded-full",
+                                channel.status === "online" && "bg-green-600",
+                                channel.status === "offline" && "bg-gray-500",
+                                channel.status === "error" && "bg-red-600"
+                              )}
+                            />
+                            {channel.status}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell>{channel.lastActivity}</TableCell>
                       <TableCell>
@@ -887,7 +1168,8 @@ export default function ChannelsPage() {
                       </TableCell>
                       <TableCell>
                         {(channel.type === "WhatsApp" ||
-                          channel.type === "WeChat") &&
+                          channel.type === "WeChat" ||
+                          channel.type === "Telegram") &&
                           channel.status !== "online" && (
                             <Button
                               size="sm"
@@ -918,9 +1200,34 @@ export default function ChannelsPage() {
                               编辑
                             </DropdownMenuItem>
                             <DropdownMenuItem>刷新</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              删除
-                            </DropdownMenuItem>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  删除
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>确认删除</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    您确定要删除渠道 "{channel.name}" 吗？
+                                    此操作无法撤销，所有相关的配置和历史记录都将被永久删除。
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>取消</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => handleDeleteChannel(channel.id)}
+                                  >
+                                    删除
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -934,9 +1241,22 @@ export default function ChannelsPage() {
       </Card>
       <WhatsAppQRDialog
         qr={qrCode}
+        qrId={qrId}
         open={isQrDialogOpen}
         onOpenChange={setIsQrDialogOpen}
         onConnectionSuccess={handleWhatsAppConnectionSuccess}
+      />
+      <WeChatQRDialog
+        qr={wechatQR}
+        open={isWechatQRDialogOpen}
+        onOpenChange={setIsWechatQRDialogOpen}
+        onConnectionSuccess={handleWeChatConnectionSuccess}
+      />
+      <TelegramDialog
+        open={isTelegramDialogOpen}
+        onOpenChange={setIsTelegramDialogOpen}
+        onConnectionSuccess={handleTelegramConnectionSuccess}
+        channelId={connectingTelegramChannel || ""}
       />
     </>
   );

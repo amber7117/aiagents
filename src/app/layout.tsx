@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { NotificationProvider } from '@/components/ui/notifications';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const sourceCodePro = Source_Code_Pro({
@@ -32,10 +33,12 @@ export default function RootLayout({
         className={`${inter.variable} ${sourceCodePro.variable} font-body antialiased h-full`}
       >
         <ErrorBoundary>
-          <NotificationProvider>
-            {children}
-            <Toaster />
-          </NotificationProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              {children}
+              <Toaster />
+            </NotificationProvider>
+          </AuthProvider>
         </ErrorBoundary>
       </body>
     </html>

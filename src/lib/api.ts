@@ -6,9 +6,14 @@ import type { User, AIAgent, Channel, Conversation, FileItem, AISettings, Messag
 // Simulate a network delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Generate unique ID with timestamp and random component
+// Generate unique ID with timestamp, counter and random component
+let idCounter = Math.floor(Math.random() * 10000); // Start with random counter to avoid conflicts
 const generateUniqueId = (prefix: string) => {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    idCounter++; // Increment counter for each ID
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 9);
+    const processId = typeof process !== 'undefined' ? (process.pid || 0) : Math.floor(Math.random() * 1000);
+    return `${prefix}-${timestamp}-${idCounter}-${random}-${processId}`;
 };
 
 const conversations: Conversation[] = conversationsData as Conversation[];
@@ -70,6 +75,33 @@ export async function addChannel({ name, type }: { name: string, type: ChannelTy
         autoReply: true,
     };
     channels.push(newChannel);
+
+    // Save to Firestore via API route
+    try {
+        await fetch('/api/firestore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'saveChannel',
+                id: newChannel.id,
+                name: newChannel.name,
+                type: newChannel.type,
+                status: newChannel.status,
+                lastActivity: newChannel.lastActivity,
+                agentId: newChannel.agentId,
+                autoReply: newChannel.autoReply,
+                phoneNumber: newChannel.phoneNumber,
+                connectedAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            })
+        });
+        console.log(`New channel saved to Firestore: ${newChannel.id}`);
+    } catch (firestoreError) {
+        console.error('Failed to save new channel to Firestore:', firestoreError);
+        // Don't break functionality, continue execution
+    }
+
     return newChannel;
 }
 
@@ -130,6 +162,33 @@ export async function updateChannel(channelId: string, updates: Partial<Channel>
     }
     Object.assign(channel, updates);
     console.log(`Updated channel ${channelId}:`, channel);
+
+    // Save to Firestore via API route
+    try {
+        await fetch('/api/firestore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'saveChannel',
+                id: channel.id,
+                name: channel.name,
+                type: channel.type,
+                status: channel.status,
+                lastActivity: channel.lastActivity,
+                agentId: channel.agentId,
+                autoReply: channel.autoReply,
+                phoneNumber: channel.phoneNumber,
+                connectedAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            })
+        });
+        console.log(`Updated channel saved to Firestore: ${channelId}`);
+    } catch (firestoreError) {
+        console.error('Failed to save updated channel to Firestore:', firestoreError);
+        // Don't break functionality, continue execution
+    }
+
     return channel;
 }
 
@@ -163,6 +222,25 @@ export async function createAgent(agent: Omit<AIAgent, 'id'>): Promise<AIAgent> 
         channelIds: [],
     };
     aiAgents.push(newAgent);
+
+    // Save to Firestore via API route
+    try {
+        await fetch('/api/agents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'create',
+                ...newAgent,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            })
+        });
+        console.log(`AI Agent saved to Firestore: ${newAgent.id}`);
+    } catch (firestoreError) {
+        console.error('Failed to save AI Agent to Firestore:', firestoreError);
+        // Don't break functionality, continue execution
+    }
+
     return newAgent;
 }
 
@@ -176,6 +254,20 @@ export async function deleteAgent(agentId: string): Promise<{ success: boolean }
                 c.agentId = undefined;
             }
         });
+
+        // Delete from Firestore via API route
+        try {
+            await fetch('/api/agents', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId })
+            });
+            console.log(`AI Agent deleted from Firestore: ${agentId}`);
+        } catch (firestoreError) {
+            console.error('Failed to delete AI Agent from Firestore:', firestoreError);
+            // Don't break functionality, continue execution
+        }
+
         return { success: true };
     }
     return { success: false };
@@ -186,6 +278,36 @@ export async function deleteFile(fileId: string): Promise<{ success: boolean }> 
     const index = files.findIndex((f) => f.id === fileId);
     if (index > -1) {
         files.splice(index, 1);
+        return { success: true };
+    }
+    return { success: false };
+}
+
+export async function deleteChannel(channelId: string): Promise<{ success: boolean }> {
+    await delay(300);
+    const index = channels.findIndex((c) => c.id === channelId);
+    if (index > -1) {
+        channels.splice(index, 1);
+        // Also remove channel associations from AI agents
+        aiAgents.forEach(agent => {
+            if (agent.channelIds?.includes(channelId)) {
+                agent.channelIds = agent.channelIds.filter(id => id !== channelId);
+            }
+        });
+
+        // Delete from Firestore via API route
+        try {
+            await fetch('/api/channels', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channelId })
+            });
+            console.log(`Channel deleted from Firestore: ${channelId}`);
+        } catch (firestoreError) {
+            console.error('Failed to delete channel from Firestore:', firestoreError);
+            // Don't break functionality, continue execution
+        }
+
         return { success: true };
     }
     return { success: false };

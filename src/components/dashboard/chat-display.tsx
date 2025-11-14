@@ -9,6 +9,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { sendMessage, getAIAgents } from '@/lib/api';
+import { useWebSocket } from '@/lib/websocket-service';
 import type { Conversation, Message, AIAgent } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -24,6 +25,8 @@ import {
   CheckCheck,
   Check,
   Clock,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -82,8 +85,12 @@ export default function ChatDisplay({
   const [aiAgents, setAIAgents] = useState<AIAgent[]>([]);
   const [assignedAgent, setAssignedAgent] = useState<AIAgent | null>(null);
   const [isAutoReplyEnabled, setIsAutoReplyEnabled] = useState(true);
+  const [customerIsTyping, setCustomerIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // WebSocket integration for real-time messaging
+  const { isConnected, messages: realTimeMessages, sendMessage: sendWebSocketMessage } = useWebSocket(conversation.id);
 
   useEffect(() => {
     const loadAgents = async () => {
@@ -105,6 +112,72 @@ export default function ChatDisplay({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation.messages]);
 
+  // Handle real-time messages from WebSocket
+  useEffect(() => {
+    if (realTimeMessages.length > 0) {
+      const latestMessage = realTimeMessages[realTimeMessages.length - 1];
+
+      if (latestMessage.type === 'new_message') {
+        // Add new message to conversation
+        setConversation(prev => ({
+          ...prev,
+          messages: [...prev.messages, latestMessage.data]
+        }));
+      } else if (latestMessage.type === 'message_update') {
+        // Update existing message (e.g., read status)
+        setConversation(prev => ({
+          ...prev,
+          messages: prev.messages.map(msg =>
+            msg.id === latestMessage.data.id ? { ...msg, ...latestMessage.data } : msg
+          )
+        }));
+      } else if (latestMessage.type === 'user_typing') {
+        // Handle typing indicators
+        setCustomerIsTyping(latestMessage.data.isTyping);
+      }
+    }
+  }, [realTimeMessages]);
+
+  // Handle typing indicators
+  useEffect(() => {
+    let typingTimeout: NodeJS.Timeout;
+
+    if (newMessage.trim()) {
+      // Send typing start event
+      sendWebSocketMessage({
+        type: 'typing_start',
+        data: {
+          conversationId: conversation.id,
+          userId: 'agent'
+        }
+      });
+
+      typingTimeout = setTimeout(() => {
+        // Send typing stop event after delay
+        sendWebSocketMessage({
+          type: 'typing_stop',
+          data: {
+            conversationId: conversation.id,
+            userId: 'agent'
+          }
+        });
+      }, 2000);
+    }
+
+    return () => {
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+        sendWebSocketMessage({
+          type: 'typing_stop',
+          data: {
+            conversationId: conversation.id,
+            userId: 'agent'
+          }
+        });
+      }
+    };
+  }, [newMessage, conversation.id, sendWebSocketMessage]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
@@ -113,37 +186,45 @@ export default function ChatDisplay({
     setNewMessage('');
 
     try {
-      // Send user message
-      const sentMessage = await sendMessage(conversation.id, messageText);
+      // Send human agent reply through the conversation API
+      const response = await fetch(`/api/inbox/conversations/${conversation.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: messageText,
+          agentId: 'human-agent' // Or get actual agent ID from context
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const result = await response.json();
+
+      // Add message to local state immediately for better UX
+      const newMessageObj: Message = {
+        id: result.messageId || Date.now().toString(),
+        text: messageText,
+        timestamp: new Date().toISOString(),
+        from: 'agent',
+        read: false
+      };
+
       setConversation((prev) => ({
         ...prev,
-        messages: [...prev.messages, sentMessage],
+        messages: [...prev.messages, newMessageObj],
       }));
 
-      // Simulate AI auto-reply if enabled and agent is assigned
-      if (isAutoReplyEnabled && assignedAgent) {
-        setIsTyping(true);
+      toast({
+        title: "Message Sent",
+        description: "Your reply has been sent through the channel",
+      });
 
-        try {
-          const aiResponse = await simulateAIResponse(messageText, assignedAgent);
-          const aiMessage = await sendMessage(conversation.id, aiResponse);
-
-          setConversation((prev) => ({
-            ...prev,
-            messages: [...prev.messages, aiMessage],
-          }));
-
-          toast({
-            title: "AI Response",
-            description: `${assignedAgent.name} automatically replied`,
-          });
-        } catch (error) {
-          console.error('AI auto-reply failed:', error);
-        } finally {
-          setIsTyping(false);
-        }
-      }
     } catch (error) {
+      console.error('Error sending message:', error);
       toast({
         title: "Error",
         description: "Failed to send message",

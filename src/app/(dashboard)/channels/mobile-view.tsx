@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -63,7 +62,7 @@ export function MobileChannelsView({ channels }: MobileChannelsViewProps) {
                   variant="outline"
                   className={cn(
                     "ml-2",
-                    channel.status === "connected"
+                    channel.status === "online"
                       ? "border-green-500 text-green-500"
                       : "border-destructive text-destructive"
                   )}

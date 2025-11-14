@@ -31,7 +31,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import conversationsData from "@/lib/conversations.json";
 import { cn } from "@/lib/utils";
 import { useMobile } from "@/hooks/use-mobile";
 import type { Conversation, ChannelType, Channel } from "@/lib/types";
@@ -70,26 +69,26 @@ function NewMessageDialog({ open, onOpenChange, channels }: { open: boolean, onO
   const getRecipientLabel = () => {
     const channel = channels.find(c => c.id === selectedChannel);
     if (!channel) return "Recipient";
-    switch(channel.type) {
-        case 'WhatsApp':
-            return "WhatsApp Number";
-        case 'Telegram':
-            return "Telegram User ID";
-        default:
-            return "Recipient ID";
+    switch (channel.type) {
+      case 'WhatsApp':
+        return "WhatsApp Number";
+      case 'Telegram':
+        return "Telegram User ID";
+      default:
+        return "Recipient ID";
     }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log({
-        channelId: selectedChannel,
-        recipient,
-        message
+      channelId: selectedChannel,
+      recipient,
+      message
     });
     toast({
-        title: "Message Sent (Simulated)",
-        description: `Your message to ${recipient} has been sent.`,
+      title: "Message Sent (Simulated)",
+      description: `Your message to ${recipient} has been sent.`,
     });
     onOpenChange(false);
     // Reset form
@@ -97,7 +96,7 @@ function NewMessageDialog({ open, onOpenChange, channels }: { open: boolean, onO
     setRecipient('');
     setMessage('');
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
@@ -143,23 +142,23 @@ function NewMessageDialog({ open, onOpenChange, channels }: { open: boolean, onO
               />
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="message" className="text-right pt-2">
-                    Message
-                </Label>
-                <Textarea
-                    id="message"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Type your message here..."
-                    className="col-span-3 min-h-[120px]"
-                    required
-                />
+              <Label htmlFor="message" className="text-right pt-2">
+                Message
+              </Label>
+              <Textarea
+                id="message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Type your message here..."
+                className="col-span-3 min-h-[120px]"
+                required
+              />
             </div>
           </div>
           <DialogFooter>
             <Button type="submit" disabled={!selectedChannel || !recipient || !message}>
-                <Send className="mr-2 h-4 w-4" />
-                Send Message
+              <Send className="mr-2 h-4 w-4" />
+              Send Message
             </Button>
           </DialogFooter>
         </form>
@@ -173,12 +172,35 @@ export default function ConversationList() {
   const isMobile = useMobile();
   const pathname = usePathname();
   const isConversationSelected = pathname.includes('/inbox/') && pathname !== '/inbox';
-  const conversationList = conversationsData as Conversation[];
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
-    getChannels().then(setChannels);
+    // Load channels and conversations
+    const loadData = async () => {
+      try {
+        const [channelsData, conversationsData] = await Promise.all([
+          getChannels(),
+          fetch('/api/inbox/conversations').then(res => res.json())
+        ]);
+        setChannels(channelsData);
+        setConversations(conversationsData.conversations || []);
+      } catch (error) {
+        console.error('Error loading inbox data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load conversations",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, []);
 
   return (
@@ -222,53 +244,79 @@ export default function ConversationList() {
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {conversationList.map((conv) => {
-          const Icon = channelIcons[conv.channel.type];
-          return (
-            <Link
-              href={`/inbox/${conv.id}`}
-              key={conv.id}
-              className={cn(
-                  "block border-b p-4 hover:bg-muted/50",
-                  pathname === `/inbox/${conv.id}` && "bg-muted"
-              )}
-            >
-              <div className="flex items-start gap-4">
-                <div className="relative">
-                  <img
-                    src={conv.customer.avatar}
-                    alt={conv.customer.name}
-                    className="h-12 w-12 rounded-full"
-                  />
-                  <span
-                    className={cn(
-                      "absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card",
-                      (conv as any).online ? "bg-green-500" : "bg-gray-400"
-                    )}
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-semibold">{conv.customer.name}</h2>
-                    <p className="text-xs text-muted-foreground">
-                      {conv.messages[conv.messages.length - 1].timestamp.split('T')[1].substring(0,5)}
-                    </p>
-                  </div>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {conv.messages[conv.messages.length - 1].text}
-                  </p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Badge variant="outline" className={cn("gap-1.5", channelColors[conv.channel.type])}>
-                      {Icon && <Icon className="h-3.5 w-3.5" />}
-                      {conv.channel.name}
-                    </Badge>
-                    {/* <Badge variant="destructive">{conv.unreadCount}</Badge> */}
-                  </div>
+        {loading ? (
+          <div className="p-4 space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="h-12 w-12 bg-gray-200 rounded-full animate-pulse"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-1/3"></div>
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-2/3"></div>
                 </div>
               </div>
-            </Link>
-          );
-        })}
+            ))}
+          </div>
+        ) : conversations.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No conversations yet</p>
+            <p className="text-sm">Start a new conversation to see it here</p>
+          </div>
+        ) : (
+          conversations.map((conv: Conversation) => {
+            const Icon = channelIcons[conv.channel.type];
+            return (
+              <Link
+                href={`/inbox/${conv.id}`}
+                key={conv.id}
+                className={cn(
+                  "block border-b p-4 hover:bg-muted/50",
+                  pathname === `/inbox/${conv.id}` && "bg-muted"
+                )}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="relative">
+                    <img
+                      src={conv.customer.avatar}
+                      alt={conv.customer.name}
+                      className="h-12 w-12 rounded-full"
+                    />
+                    <span
+                      className={cn(
+                        "absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-card",
+                        (conv as any).online ? "bg-green-500" : "bg-gray-400"
+                      )}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-semibold">{conv.customer.name}</h2>
+                      <p className="text-xs text-muted-foreground">
+                        {conv.messages[conv.messages.length - 1]?.timestamp ?
+                          new Date(conv.messages[conv.messages.length - 1].timestamp).toLocaleTimeString('en-US', {
+                            hour12: false,
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : ''
+                        }
+                      </p>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {conv.messages[conv.messages.length - 1]?.text || 'No messages'}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Badge variant="outline" className={cn("gap-1.5", channelColors[conv.channel.type])}>
+                        {Icon && <Icon className="h-3.5 w-3.5" />}
+                        {conv.channel.name}
+                      </Badge>
+                      {/* <Badge variant="destructive">{conv.unreadCount}</Badge> */}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })
+        )}
       </div>
       <NewMessageDialog open={isNewMessageOpen} onOpenChange={setIsNewMessageOpen} channels={channels} />
     </div>

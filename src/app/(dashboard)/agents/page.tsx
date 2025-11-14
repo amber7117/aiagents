@@ -6,6 +6,10 @@ import {
   PlusCircle,
   MessageSquare,
   Sparkles,
+  Settings,
+  Wand2,
+  Target,
+  Brain,
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
@@ -55,10 +59,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createAgent, getAIAgents, getChannels, deleteAgent } from '@/lib/api';
 import type { AIAgent, Channel } from '@/lib/types';
-import { generateAgentPrompt } from '@/ai/flows/generate-agent-prompt';
 import { useToast } from '@/hooks/use-toast';
+import { aiService, predefinedRoles, type AgentRole, type PromptGenerationParams } from '@/lib/ai-service';
+import { AISettingsModal } from '@/components/ai-settings-modal';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 function CreateAgentDialog({
   onAgentCreate,
@@ -72,6 +79,12 @@ function CreateAgentDialog({
   const [model, setModel] = useState('gemini-1.5-flash');
   const [generatedPrompt, setGeneratedPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<AgentRole | null>(null);
+  const [companyInfo, setCompanyInfo] = useState('');
+  const [productInfo, setProductInfo] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
+  const [tone, setTone] = useState<'formal' | 'casual' | 'friendly' | 'professional'>('professional');
+  const [generationMethod, setGenerationMethod] = useState<'template' | 'ai' | 'manual'>('template');
   const { toast } = useToast();
 
   const modelOptions = {
@@ -93,65 +106,88 @@ function CreateAgentDialog({
 
   const handleProviderChange = (newProvider: 'OpenAI' | 'DeepSeek' | 'Gemini') => {
     setProvider(newProvider);
-    // Reset model to first available option for new provider
     setModel(modelOptions[newProvider][0].value);
   };
 
+  const handleRoleSelect = async (role: AgentRole) => {
+    setSelectedRole(role);
+    setName(role.name);
+    setDescription(role.description);
+
+    // 根据角色生成 prompt
+    const params: PromptGenerationParams = {
+      role,
+      companyInfo,
+      productInfo,
+      specialInstructions,
+      tone,
+    };
+
+    const prompt = await aiService.generateAgentPrompt(params);
+    setGeneratedPrompt(prompt);
+  };
+
   const handleGeneratePrompt = async () => {
-    if (!description) return;
+    if (generationMethod === 'template' && !selectedRole) {
+      toast({
+        variant: "destructive",
+        description: "请先选择一个角色模板"
+      });
+      return;
+    }
+
+    if (generationMethod === 'ai' && !description) {
+      toast({
+        variant: "destructive",
+        description: "请先填写智能体描述"
+      });
+      return;
+    }
+
     setIsGenerating(true);
+
     try {
-      // Simulate AI prompt generation (since we don't have the actual Genkit flow)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      let prompt = '';
 
-      const samplePrompts = {
-        'customer_service': `You are a helpful customer service agent for our company. Your primary goals are to:
-1. Provide accurate and helpful information to customers
-2. Resolve issues quickly and efficiently  
-3. Maintain a friendly and professional tone
-4. Escalate complex issues when necessary
-
-Always greet customers warmly and ask how you can help them today.`,
-        'sales': `You are a knowledgeable sales assistant. Your role is to:
-1. Understand customer needs and recommend suitable products
-2. Provide detailed product information and pricing
-3. Guide customers through the purchase process
-4. Build trust and rapport with potential buyers
-
-Be enthusiastic about our products while being honest about their capabilities.`,
-        'support': `You are a technical support specialist. Your responsibilities include:
-1. Diagnosing technical issues accurately
-2. Providing step-by-step troubleshooting guidance
-3. Documenting common problems and solutions
-4. Ensuring customer satisfaction with resolutions
-
-Ask clarifying questions to understand the technical problem fully before providing solutions.`,
-      };
-
-      // Simple keyword matching for demo
-      let prompt = `You are an AI assistant designed to help with: ${description}\n\nKey behaviors:
-- Be helpful, accurate, and professional
-- Provide clear and concise responses
-- Ask clarifying questions when needed
-- Maintain a friendly tone throughout conversations`;
-
-      if (description.toLowerCase().includes('customer service') || description.toLowerCase().includes('support')) {
-        prompt = samplePrompts.support;
-      } else if (description.toLowerCase().includes('sales') || description.toLowerCase().includes('selling')) {
-        prompt = samplePrompts.sales;
-      } else if (description.toLowerCase().includes('service')) {
-        prompt = samplePrompts.customer_service;
+      if (generationMethod === 'template' && selectedRole) {
+        const params: PromptGenerationParams = {
+          role: selectedRole,
+          companyInfo,
+          productInfo,
+          specialInstructions,
+          tone,
+        };
+        prompt = await aiService.generateAgentPrompt(params);
+      } else if (generationMethod === 'ai') {
+        const context = [companyInfo, productInfo, specialInstructions].filter(Boolean).join('\n');
+        prompt = await aiService.generateCustomPrompt(description, context || undefined);
       }
 
       setGeneratedPrompt(prompt);
-      toast({ description: "Agent prompt generated successfully." });
+      toast({ description: "智能体 Prompt 生成成功！" });
     } catch (error) {
       console.error('Failed to generate prompt:', error);
-      setGeneratedPrompt('Error: Could not generate prompt.');
-      toast({ variant: "destructive", description: "Failed to generate prompt." });
+      toast({
+        variant: "destructive",
+        description: error instanceof Error ? error.message : "Prompt 生成失败"
+      });
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const resetForm = () => {
+    setName('');
+    setDescription('');
+    setGeneratedPrompt('');
+    setSelectedRole(null);
+    setCompanyInfo('');
+    setProductInfo('');
+    setSpecialInstructions('');
+    setTone('professional');
+    setGenerationMethod('template');
+    setProvider('Gemini');
+    setModel('gemini-1.5-flash');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,15 +205,11 @@ Ask clarifying questions to understand the technical problem fully before provid
       });
       onAgentCreate(newAgent);
 
-      setName('');
-      setDescription('');
-      setGeneratedPrompt('');
-      setProvider('Gemini');
-      setModel('gemini-1.5-flash');
+      resetForm();
       setOpen(false);
-      toast({ description: `Agent "${name}" created successfully.` });
+      toast({ description: `智能体 "${name}" 创建成功！` });
     } catch (error) {
-      toast({ variant: "destructive", description: "Failed to create agent." });
+      toast({ variant: "destructive", description: "创建智能体失败" });
     }
   };
 
@@ -186,104 +218,260 @@ Ask clarifying questions to understand the technical problem fully before provid
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1">
           <PlusCircle className="h-3.5 w-3.5" />
-          Create Agent
+          创建智能体
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[625px]">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Create New AI Agent</DialogTitle>
+            <VisuallyHidden>
+              <DialogTitle>创建新的 AI 智能体</DialogTitle>
+            </VisuallyHidden>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot className="h-5 w-5" />
+              创建新的 AI 智能体
+            </DialogTitle>
             <DialogDescription>
-              Configure a new agent to automate conversations.
+              配置一个新的智能体来自动化对话处理
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="New Sales Agent"
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="provider" className="text-right">
-                Provider
-              </Label>
-              <Select value={provider} onValueChange={handleProviderChange}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select AI provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Gemini">Google Gemini</SelectItem>
-                  <SelectItem value="OpenAI">OpenAI</SelectItem>
-                  <SelectItem value="DeepSeek">DeepSeek</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="model" className="text-right">
-                Model
-              </Label>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select model" />
-                </SelectTrigger>
-                <SelectContent>
-                  {modelOptions[provider].map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="description" className="text-right pt-2">
-                Description
-              </Label>
-              <div className="col-span-3 space-y-2">
+
+          <div className="py-6">
+            <Tabs value={generationMethod} onValueChange={(value) => setGenerationMethod(value as any)}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="template" className="gap-2">
+                  <Target className="h-4 w-4" />
+                  角色模板
+                </TabsTrigger>
+                <TabsTrigger value="ai" className="gap-2">
+                  <Brain className="h-4 w-4" />
+                  AI 生成
+                </TabsTrigger>
+                <TabsTrigger value="manual" className="gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  手动编写
+                </TabsTrigger>
+              </TabsList>
+
+              {/* 角色模板选择 */}
+              <TabsContent value="template" className="space-y-4">
+                <div>
+                  <Label>选择预定义角色</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                    {predefinedRoles.map((role) => (
+                      <Card
+                        key={role.type}
+                        className={`cursor-pointer transition-colors ${selectedRole?.type === role.type
+                          ? 'border-primary bg-primary/5'
+                          : 'hover:bg-muted/50'
+                          }`}
+                        onClick={() => handleRoleSelect(role)}
+                      >
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">{role.name}</CardTitle>
+                          <CardDescription className="text-xs">
+                            {role.description}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex flex-wrap gap-1">
+                            {role.skills.slice(0, 3).map((skill) => (
+                              <Badge key={skill} variant="secondary" className="text-xs">
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 角色定制 */}
+                {selectedRole && (
+                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium">定制 {selectedRole.name}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="companyInfo">公司信息</Label>
+                        <Textarea
+                          id="companyInfo"
+                          placeholder="简介公司背景、业务范围等"
+                          value={companyInfo}
+                          onChange={(e) => setCompanyInfo(e.target.value)}
+                          className="h-20"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="productInfo">产品/服务信息</Label>
+                        <Textarea
+                          id="productInfo"
+                          placeholder="描述主要产品或服务特点"
+                          value={productInfo}
+                          onChange={(e) => setProductInfo(e.target.value)}
+                          className="h-20"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="specialInstructions">特殊指令</Label>
+                      <Textarea
+                        id="specialInstructions"
+                        placeholder="添加特定的行为指导或限制"
+                        value={specialInstructions}
+                        onChange={(e) => setSpecialInstructions(e.target.value)}
+                        className="h-16"
+                      />
+                    </div>
+                    <div>
+                      <Label>对话语调</Label>
+                      <Select value={tone} onValueChange={(value) => setTone(value as any)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="professional">专业正式</SelectItem>
+                          <SelectItem value="friendly">友好亲切</SelectItem>
+                          <SelectItem value="casual">轻松随和</SelectItem>
+                          <SelectItem value="formal">严谨正式</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* AI 生成 */}
+              <TabsContent value="ai" className="space-y-4">
+                <div>
+                  <Label htmlFor="description">智能体描述</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="详细描述智能体的目的和行为，例如：'一个专业的客服机器人，能够处理产品咨询、订单查询和售后服务...'"
+                    className="min-h-[120px]"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="companyInfo">公司信息（可选）</Label>
+                    <Textarea
+                      id="companyInfo"
+                      placeholder="公司背景信息"
+                      value={companyInfo}
+                      onChange={(e) => setCompanyInfo(e.target.value)}
+                      className="h-20"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="productInfo">产品信息（可选）</Label>
+                    <Textarea
+                      id="productInfo"
+                      placeholder="产品或服务信息"
+                      value={productInfo}
+                      onChange={(e) => setProductInfo(e.target.value)}
+                      className="h-20"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* 手动编写 */}
+              <TabsContent value="manual" className="space-y-4">
+                <div>
+                  <Label htmlFor="manualDescription">智能体描述</Label>
+                  <Textarea
+                    id="manualDescription"
+                    placeholder="简单描述智能体的作用"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* 基础配置 */}
+            <div className="space-y-4 mt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="name">智能体名称 *</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="客服小助手"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="provider">AI 提供商</Label>
+                  <Select value={provider} onValueChange={handleProviderChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择 AI 提供商" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Gemini">Google Gemini</SelectItem>
+                      <SelectItem value="OpenAI">OpenAI</SelectItem>
+                      <SelectItem value="DeepSeek">DeepSeek</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="model">模型</Label>
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择模型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {modelOptions[provider].map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* 生成 Prompt 按钮 */}
+              {generationMethod !== 'manual' && (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    onClick={handleGeneratePrompt}
+                    disabled={isGenerating}
+                    size="lg"
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    {isGenerating ? '生成中...' : `${generationMethod === 'template' ? '基于模板生成' : 'AI 生成'} Prompt`}
+                  </Button>
+                </div>
+              )}
+
+              {/* Prompt 编辑区 */}
+              <div>
+                <Label htmlFor="prompt">智能体 Prompt *</Label>
                 <Textarea
-                  id="description"
-                  placeholder="Describe the agent's purpose, e.g., 'A friendly bot that helps users with pricing questions.'"
-                  className="min-h-[100px]"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  id="prompt"
+                  placeholder={generationMethod === 'manual' ? '手动编写系统提示词...' : '点击上方按钮生成 Prompt，或手动编辑...'}
+                  className="min-h-[200px] font-mono text-sm"
+                  value={generatedPrompt}
+                  onChange={(e) => setGeneratedPrompt(e.target.value)}
+                  required
                 />
-                <Button
-                  type="button"
-                  onClick={handleGeneratePrompt}
-                  disabled={isGenerating || !description}
-                  size="sm"
-                  variant="outline"
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {isGenerating ? 'Generating...' : 'Generate Prompt from Description'}
-                </Button>
               </div>
             </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="prompt" className="text-right pt-2">
-                Agent Prompt
-              </Label>
-              <Textarea
-                id="prompt"
-                placeholder="System prompt for the AI..."
-                className="col-span-3 min-h-[150px]"
-                value={generatedPrompt}
-                onChange={(e) => setGeneratedPrompt(e.target.value)}
-                required
-              />
-            </div>
           </div>
+
           <DialogFooter>
-            <Button type="submit">Create Agent</Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              取消
+            </Button>
+            <Button type="submit" disabled={!name || !generatedPrompt}>
+              创建智能体
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -296,6 +484,7 @@ export default function AgentsPage() {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<AIAgent | null>(null);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -332,7 +521,20 @@ export default function AgentsPage() {
       setAgents(agents.filter((a) => a.id !== agentToDelete.id));
       setDeleteDialogOpen(false);
       setAgentToDelete(null);
-      toast({ description: `Agent "${agentToDelete.name}" deleted.` });
+      toast({ description: `智能体 "${agentToDelete.name}" 已删除` });
+    }
+  };
+
+  const getProviderBadgeColor = (provider: string) => {
+    switch (provider) {
+      case 'OpenAI':
+        return 'bg-green-100 text-green-800';
+      case 'Gemini':
+        return 'bg-blue-100 text-blue-800';
+      case 'DeepSeek':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -340,23 +542,40 @@ export default function AgentsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">AI Agents</h1>
+          <h1 className="text-2xl font-bold tracking-tight">AI 智能体</h1>
           <p className="text-muted-foreground">
-            Create and manage AI agents to automate responses.
+            创建和管理 AI 智能体来自动化客户对话
           </p>
         </div>
-        <CreateAgentDialog onAgentCreate={handleCreateAgent} />
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={() => setSettingsDialogOpen(true)}
+          >
+            <Settings className="h-3.5 w-3.5" />
+            AI 设置
+          </Button>
+          <CreateAgentDialog onAgentCreate={handleCreateAgent} />
+        </div>
       </div>
 
+      {/* AI 智能体列表 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {agents.map((agent: AIAgent, index) => (
-          <Card key={`${agent.id}-${index}`}>
+          <Card key={`${agent.id}-${index}`} className="relative">
             <CardHeader className="flex flex-row items-start justify-between space-y-0">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                   <Bot className="h-6 w-6 text-primary" />
                 </div>
-                <CardTitle className="text-lg">{agent.name}</CardTitle>
+                <div>
+                  <CardTitle className="text-lg">{agent.name}</CardTitle>
+                  <Badge className={`text-xs ${getProviderBadgeColor(agent.provider || 'Unknown')}`}>
+                    {agent.provider} {agent.model}
+                  </Badge>
+                </div>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -365,32 +584,38 @@ export default function AgentsPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => toast({ description: "Edit not implemented." })}>
-                    Edit
+                  <DropdownMenuLabel>操作</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => toast({ description: "编辑功能开发中" })}>
+                    编辑
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => toast({ description: "Duplicate not implemented." })}>
-                    Duplicate
+                  <DropdownMenuItem onClick={() => toast({ description: "复制功能开发中" })}>
+                    复制
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toast({ description: "测试功能开发中" })}>
+                    测试对话
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => handleDeleteRequest(agent)}
                   >
-                    Delete
+                    删除
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground h-10">{agent.description}</p>
-              <div className="mt-4 flex items-center justify-between text-sm">
-                <Badge variant="outline">{agent.provider}</Badge>
+              <p className="text-sm text-muted-foreground min-h-[40px]">{agent.description}</p>
+              <div className="mt-4">
+                <div className="text-xs text-muted-foreground mb-2">系统提示词预览:</div>
+                <div className="text-xs bg-muted/50 p-2 rounded font-mono max-h-20 overflow-hidden">
+                  {agent.prompt?.substring(0, 100)}...
+                </div>
               </div>
             </CardContent>
             <CardFooter>
               <div className="flex flex-col gap-2 text-sm w-full">
-                <h4 className="font-medium">Active on:</h4>
-                <div className="flex flex-wrap gap-2">
+                <h4 className="font-medium">活跃渠道:</h4>
+                <div className="flex flex-wrap gap-2 min-h-[24px]">
                   {(agent.channelIds || []).length > 0 ? (
                     (agent.channelIds || []).map((id) => {
                       const channel = channels.find((c) => c.id === id);
@@ -402,7 +627,7 @@ export default function AgentsPage() {
                       );
                     })
                   ) : (
-                    <p className="text-xs text-muted-foreground">No channels assigned</p>
+                    <p className="text-xs text-muted-foreground">暂未分配渠道</p>
                   )}
                 </div>
               </div>
@@ -410,23 +635,50 @@ export default function AgentsPage() {
           </Card>
         ))}
       </div>
+
+      {/* 空状态 */}
+      {agents.length === 0 && (
+        <Card className="text-center py-12">
+          <CardContent>
+            <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">还没有智能体</h3>
+            <p className="text-muted-foreground mb-4">
+              创建您的第一个 AI 智能体来开始自动化客户对话
+            </p>
+            <CreateAgentDialog onAgentCreate={handleCreateAgent} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 删除确认对话框 */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>确认删除</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the agent ' '
-              <span className="font-semibold text-foreground">{agentToDelete?.name}</span>.
+              确定要删除智能体{' '}
+              <span className="font-semibold text-foreground">"{agentToDelete?.name}"</span>{' '}
+              吗？此操作无法撤销。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              删除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* AI 设置对话框 */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <AISettingsModal onClose={() => setSettingsDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
